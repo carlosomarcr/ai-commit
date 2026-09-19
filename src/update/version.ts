@@ -7,8 +7,12 @@ export interface PackageInfo {
   version: string;
 }
 
+/** Injected by the bundler so a standalone binary (no package.json next to it) still knows its version. */
+declare const __AICOMMIT_PKG__: PackageInfo | undefined;
+
 /** Walks up from this file (src/ or dist/) to the package.json, so it works both in dev and built. */
 export function readPackageInfo(): PackageInfo {
+  if (typeof __AICOMMIT_PKG__ !== "undefined") return __AICOMMIT_PKG__;
   let dir = dirname(fileURLToPath(import.meta.url));
   for (let i = 0; i < 5; i++) {
     try {

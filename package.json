@@ -9,7 +9,8 @@
   "files": [
     "dist",
     "CHANGELOG.md",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=20"
@@ -20,7 +21,8 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "prepublishOnly": "pnpm typecheck && pnpm test && pnpm build"
+    "prepublishOnly": "pnpm typecheck && pnpm test && pnpm build",
+    "build:binary": "node scripts/build-binary.mjs"
   },
   "dependencies": {
     "@clack/prompts": "^1.8.1",
@@ -39,5 +41,14 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "license": "MIT",
+  "keywords": [
+    "git",
+    "commit",
+    "ai",
+    "cli",
+    "ollama",
+    "conventional-commits"
+  ]
 }

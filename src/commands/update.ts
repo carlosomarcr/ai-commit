@@ -33,7 +33,9 @@ export async function runUpdate(opts: { check?: boolean; yes?: boolean }): Promi
     p.outro(
       method === "dev"
         ? `Running from a source checkout: ${pc.cyan("git pull && pnpm install && pnpm build")}`
-        : `Installed via npx, which fetches fresh copies: ${pc.cyan(`npx ${name}@latest`)}`,
+        : method === "binary"
+          ? "Standalone binary: download the newest one from the project's Releases page and replace this file."
+          : `Installed via npx, which fetches fresh copies: ${pc.cyan(`npx ${name}@latest`)}`,
     );
     return;
   }

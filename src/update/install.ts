@@ -1,6 +1,7 @@
 import { realpathSync } from "node:fs";
+import { basename } from "node:path";
 
-export type InstallMethod = "pnpm" | "npm" | "yarn" | "bun" | "npx" | "dev";
+export type InstallMethod = "pnpm" | "npm" | "yarn" | "bun" | "npx" | "binary" | "dev";
 
 /**
  * Figures out how this copy was installed from where the script lives.
@@ -17,6 +18,8 @@ export function detectInstall(scriptPath: string): InstallMethod {
 }
 
 export function currentInstall(): InstallMethod {
+  // A standalone binary is its own executable; only real Node runs load a script.
+  if (!/^node(\.exe)?$/i.test(basename(process.execPath))) return "binary";
   try {
     return detectInstall(realpathSync(process.argv[1] ?? ""));
   } catch {
