@@ -1,6 +1,10 @@
 import { cac } from "cac";
 import { runCommit } from "./commands/commit.js";
 import { runInitCommand } from "./commands/init.js";
+import { runRules } from "./commands/rules.js";
+import { runUpdate } from "./commands/update.js";
+import { scheduleUpdateNotice } from "./update/check.js";
+import { readPackageInfo } from "./update/version.js";
 
 const cli = cac("aicommit");
 
@@ -31,8 +35,21 @@ cli
 
 cli.command("init", "Interactive setup: provider, model, preferences").action(runInitCommand);
 
+cli
+  .command("update", "Check for a new version and install it")
+  .option("--check", "Only check, do not install")
+  .option("-y, --yes", "Skip the confirmation prompt")
+  .action((o) => runUpdate({ check: o.check, yes: o.yes }));
+
+cli.command("rules", "Show the commit rules detected for this project").action(runRules);
+
 cli.help();
-cli.version("0.1.0");
+cli.version(readPackageInfo().version);
+
+const first = process.argv[2];
+if (first !== "update" && !process.argv.some((a) => ["-h", "--help", "-v", "--version"].includes(a))) {
+  scheduleUpdateNotice();
+}
 
 try {
   cli.parse(process.argv, { run: false });

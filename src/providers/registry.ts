@@ -1,5 +1,5 @@
 import type { Config } from "../config/store.js";
-import { OllamaProvider } from "./ollama.js";
+import { OLLAMA_CLOUD_URL, OllamaProvider } from "./ollama.js";
 import { OpenAICompatibleProvider } from "./openai-compatible.js";
 import { ProviderError, type Provider } from "./types.js";
 
@@ -13,7 +13,7 @@ export interface ProviderPreset {
 }
 
 export const PRESETS: ProviderPreset[] = [
-  { id: "ollama", label: "Ollama (local)", needsKey: false },
+  { id: "ollama", label: "Ollama (local or cloud)", envKey: "OLLAMA_API_KEY", needsKey: false },
   { id: "deepseek", label: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", envKey: "DEEPSEEK_API_KEY", defaultModel: "deepseek-chat", needsKey: true },
   { id: "openai", label: "OpenAI", baseUrl: "https://api.openai.com/v1", envKey: "OPENAI_API_KEY", defaultModel: "gpt-4o-mini", needsKey: true },
   { id: "groq", label: "Groq", baseUrl: "https://api.groq.com/openai/v1", envKey: "GROQ_API_KEY", defaultModel: "llama-3.3-70b-versatile", needsKey: true },
@@ -27,7 +27,12 @@ export function createProvider(cfg: Config): Provider {
   const model = cfg.model ?? preset.defaultModel;
   if (!model) throw new ProviderError(`No model configured for ${preset.label}. Run \`aicommit init\`.`);
 
-  if (preset.id === "ollama") return new OllamaProvider(model, cfg.baseUrl);
+  if (preset.id === "ollama") {
+    // Key is optional: local servers don't need one, Ollama Cloud does.
+    const key = process.env.OLLAMA_API_KEY || cfg.apiKey;
+    const baseUrl = cfg.baseUrl ?? (key && !process.env.OLLAMA_HOST ? OLLAMA_CLOUD_URL : undefined);
+    return new OllamaProvider(model, baseUrl || process.env.OLLAMA_HOST || undefined, key || undefined);
+  }
 
   const baseUrl = cfg.baseUrl ?? preset.baseUrl;
   if (!baseUrl) throw new ProviderError("No base URL configured. Run `aicommit init`.");

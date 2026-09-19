@@ -2,13 +2,25 @@ import { assertOk } from "./openai-compatible.js";
 import { ProviderError, type GenerateOptions, type Provider } from "./types.js";
 
 export const OLLAMA_URL = "http://localhost:11434";
+export const OLLAMA_CLOUD_URL = "https://ollama.com";
 
+/** Works against a local server, a remote/proxied server, or Ollama Cloud (needs an API key). */
 export class OllamaProvider implements Provider {
   readonly name = "ollama";
-  constructor(private model: string, private baseUrl = OLLAMA_URL) {}
+  private baseUrl: string;
+  constructor(private model: string, baseUrl = OLLAMA_URL, private apiKey?: string) {
+    this.baseUrl = baseUrl.replace(/\/+$/, "");
+  }
+
+  private headers(): Record<string, string> {
+    return {
+      "content-type": "application/json",
+      ...(this.apiKey ? { authorization: `Bearer ${this.apiKey}` } : {}),
+    };
+  }
 
   async listModels(): Promise<string[]> {
-    const res = await fetch(`${this.baseUrl}/api/tags`);
+    const res = await fetch(`${this.baseUrl}/api/tags`, { headers: this.headers() });
     await assertOk(res, this.name);
     const json = (await res.json()) as { models?: { name: string }[] };
     return (json.models ?? []).map((m) => m.name);
@@ -17,6 +29,7 @@ export class OllamaProvider implements Provider {
   async generate({ system, user, signal }: GenerateOptions): Promise<string> {
     const res = await fetch(`${this.baseUrl}/api/chat`, {
       method: "POST",
+      headers: this.headers(),
       signal,
       body: JSON.stringify({
         model: this.model,

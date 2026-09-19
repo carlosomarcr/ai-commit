@@ -7,7 +7,9 @@
     "aicommit": "./dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md",
+    "README.md"
   ],
   "engines": {
     "node": ">=20"
@@ -17,7 +19,8 @@
     "dev": "tsx src/cli.ts",
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "pnpm typecheck && pnpm test && pnpm build"
   },
   "dependencies": {
     "@clack/prompts": "^1.8.1",
@@ -32,5 +35,8 @@
     "tsx": "^4.23.13",
     "typescript": "^7.0.2",
     "vitest": "^5.0.1"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

@@ -24,6 +24,10 @@ export async function isRepo(cwd?: string): Promise<boolean> {
   return r?.stdout.trim() === "true";
 }
 
+export async function root(): Promise<string> {
+  return (await git(["rev-parse", "--show-toplevel"])).stdout.trim();
+}
+
 export async function currentBranch(): Promise<string> {
   const r = await git(["rev-parse", "--abbrev-ref", "HEAD"]);
   return r.stdout.trim();
@@ -62,7 +66,7 @@ export async function stagedStat(): Promise<string> {
   return (await git(["diff", "--cached", "--no-color", "--stat"])).stdout;
 }
 
-export async function recentSubjects(n = 15): Promise<string[]> {
+export async function recentSubjects(n = 30): Promise<string[]> {
   const r = await git(["log", `-${n}`, "--pretty=%s"], { reject: false });
   return r.stdout.split("\n").filter(Boolean);
 }

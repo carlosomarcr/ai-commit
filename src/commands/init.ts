@@ -1,5 +1,5 @@
-import { saveConfig, configPath, type Config } from "../config/store.js";
-import { detectOllama } from "../providers/ollama.js";
+import { saveConfig, configPath, CONFIG_VERSION, type Config } from "../config/store.js";
+import { detectOllama, OLLAMA_CLOUD_URL, OLLAMA_URL } from "../providers/ollama.js";
 import { createProvider, PRESETS } from "../providers/registry.js";
 import { banner, p, pc, unwrap } from "../ui/theme.js";
 
@@ -25,12 +25,53 @@ export async function runInit(): Promise<Config> {
   );
   const preset = PRESETS.find((x) => x.id === provider)!;
 
-  const config: Config = { provider, language: "en", push: "ask" };
+  const config: Config = { configVersion: CONFIG_VERSION, provider, language: "en", push: "ask", updateCheck: true };
 
   if (provider === "custom") {
     config.baseUrl = unwrap(
       await p.text({ message: "Base URL (OpenAI-compatible)", placeholder: "http://localhost:1234/v1", validate: (v) => (v?.startsWith("http") ? undefined : "Must start with http(s)://") }),
     );
+  }
+
+  let ollamaLocal = false;
+  if (provider === "ollama") {
+    const mode = unwrap(
+      await p.select({
+        message: "Where does Ollama run?",
+        options: [
+          { value: "local", label: "Local server", hint: ollamaModels ? "localhost:11434, detected" : "localhost:11434" },
+          { value: "cloud", label: "Ollama Cloud", hint: "ollama.com, needs an API key" },
+          { value: "remote", label: "Remote server", hint: "your own host, optional API key" },
+        ],
+        initialValue: ollamaModels ? "local" : "cloud",
+      }),
+    );
+    if (mode === "local") {
+      ollamaLocal = true;
+      config.baseUrl = OLLAMA_URL;
+    } else {
+      config.baseUrl =
+        mode === "cloud"
+          ? OLLAMA_CLOUD_URL
+          : unwrap(
+              await p.text({
+                message: "Ollama server URL",
+                placeholder: "https://ollama.example.com",
+                validate: (v) => (v?.startsWith("http") ? undefined : "Must start with http(s)://"),
+              }),
+            );
+      if (process.env.OLLAMA_API_KEY) {
+        p.log.info("Using OLLAMA_API_KEY from your environment.");
+      } else {
+        const key = unwrap(
+          await p.password({
+            message: mode === "cloud" ? "Ollama API key (ollama.com/settings/keys)" : "API key (leave empty if none)",
+            validate: mode === "cloud" ? (v) => (v?.trim() ? undefined : "Required for Ollama Cloud") : undefined,
+          }),
+        );
+        if (key) config.apiKey = key;
+      }
+    }
   }
 
   const envKey = preset.envKey ? process.env[preset.envKey] : undefined;
@@ -44,8 +85,8 @@ export async function runInit(): Promise<Config> {
   }
 
   // Model selection from the provider's real list, with a manual fallback.
-  let models: string[] = provider === "ollama" ? (ollamaModels ?? []) : [];
-  if (provider !== "ollama") {
+  let models: string[] = ollamaLocal ? (ollamaModels ?? []) : [];
+  if (!ollamaLocal) {
     const spin = p.spinner();
     spin.start("Checking connection");
     try {

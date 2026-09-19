@@ -1,5 +1,6 @@
 import * as git from "../git/git.js";
-import { formatMessage, generateMessage, type CommitMessage } from "../commit/generate.js";
+import { formatMessage, generateMessage, header, validateMessage, type CommitMessage } from "../commit/generate.js";
+import { loadRules } from "../rules/index.js";
 import { loadConfig, type Config } from "../config/store.js";
 import { createProvider } from "../providers/registry.js";
 import { banner, p, pc, statusColor, unwrap } from "../ui/theme.js";
@@ -63,12 +64,19 @@ export async function runCommit(opts: CommitOptions): Promise<void> {
     p.note(renderFiles(staged), `Staged changes (${staged.length})`);
   }
 
-  // --- Generate + review ---------------------------------------------------
-  const [stat, diff, recentSubjects] = await Promise.all([
+  // --- Rules + context -----------------------------------------------------
+  const [stat, diff, subjects, root] = await Promise.all([
     git.stagedStat(),
     git.stagedDiff(),
     git.recentSubjects(),
+    git.root(),
   ]);
+  const rules = await loadRules({ cwd: process.cwd(), root, subjects });
+  const language = opts.lang ?? rules.language ?? config.language;
+  const applied = rules.sources.filter((s) => s.kind !== "history");
+  if (applied.length) {
+    p.log.info(`${pc.bold("Rules applied")}  ${pc.dim(applied.map((s) => s.label).join(" · "))}`);
+  }
 
   let instructions = opts.instructions;
   let message: CommitMessage;
@@ -80,8 +88,8 @@ export async function runCommit(opts: CommitOptions): Promise<void> {
         provider,
         stat,
         diff,
-        language: config.language,
-        recentSubjects,
+        language,
+        rules,
         instructions,
       });
       spin.stop("Message ready");
@@ -92,6 +100,8 @@ export async function runCommit(opts: CommitOptions): Promise<void> {
     }
 
     p.note(pc.bold(formatMessage(message)), "Proposed commit");
+    const violations = validateMessage(message, rules);
+    if (violations.length) p.log.warn(`Doesn't fully match project rules: ${violations.join("; ")}`);
 
     if (opts.dryRun) {
       p.outro(pc.dim("Dry run: nothing committed."));
@@ -119,7 +129,7 @@ export async function runCommit(opts: CommitOptions): Promise<void> {
       const title = unwrap(
         await p.text({
           message: "Commit title",
-          initialValue: `${message.type}${message.scope ? `(${message.scope})` : ""}: ${message.title}`,
+          initialValue: header(message),
           validate: (v) => (v?.trim() ? undefined : "Title can't be empty"),
         }),
       );
