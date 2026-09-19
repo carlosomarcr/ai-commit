@@ -1,9 +1,9 @@
 # gitowl installer for Windows (PowerShell 5.1+).
 #   irm <url>/install.ps1 | iex
-# Optional: $env:GITOWL_PACKAGE (default gitowl), $env:GITOWL_NO_INIT = "1" to skip the wizard.
+# Optional: $env:GITOWL_PACKAGE (default @carlosomarcr/gitowl), $env:GITOWL_NO_INIT = "1" to skip the wizard.
 $ErrorActionPreference = "Stop"
 
-$package = if ($env:GITOWL_PACKAGE) { $env:GITOWL_PACKAGE } else { "gitowl" }
+$package = if ($env:GITOWL_PACKAGE) { $env:GITOWL_PACKAGE } else { "@carlosomarcr/gitowl" }
 
 function Say($msg)  { Write-Host "==> $msg" -ForegroundColor Magenta }
 function Fail($msg) { Write-Host "ERROR: $msg" -ForegroundColor Red; exit 1 }

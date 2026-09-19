@@ -73,6 +73,6 @@ describe("migrateConfig", () => {
 
 describe("readPackageInfo", () => {
   it("finds this package", () => {
-    expect(readPackageInfo().name).toBe("gitowl");
+    expect(readPackageInfo().name).toBe("@carlosomarcr/gitowl");
   });
 });

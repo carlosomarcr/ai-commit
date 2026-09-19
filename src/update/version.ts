@@ -23,7 +23,7 @@ export function readPackageInfo(): PackageInfo {
     }
     dir = dirname(dir);
   }
-  return { name: "gitowl", version: "0.0.0" };
+  return { name: "@carlosomarcr/gitowl", version: "0.0.0" };
 }
 
 function parse(v: string): { nums: number[]; pre: string | null } {

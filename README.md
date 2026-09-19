@@ -29,7 +29,7 @@ AI-written git commits that **group your changes into logical commits**, follow 
 
 ```bash
 # any platform, needs Node 20.19+
-npm install -g gitowl        # or: pnpm add -g gitowl
+npm install -g @carlosomarcr/gitowl        # or: pnpm add -g @carlosomarcr/gitowl   (the command is just `gitowl`)
 
 # one-liners that also run the setup wizard
 curl -fsSL https://raw.githubusercontent.com/carlosomarcr/gitowl/main/install.sh | sh          # macOS / Linux

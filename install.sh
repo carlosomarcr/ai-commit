@@ -1,10 +1,10 @@
 #!/bin/sh
 # gitowl installer for macOS / Linux.
 #   curl -fsSL <url>/install.sh | sh
-# Options (environment): GITOWL_PACKAGE (default gitowl), GITOWL_NO_INIT=1 to skip the wizard.
+# Options (environment): GITOWL_PACKAGE (default @carlosomarcr/gitowl), GITOWL_NO_INIT=1 to skip the wizard.
 set -eu
 
-PACKAGE="${GITOWL_PACKAGE:-gitowl}"
+PACKAGE="${GITOWL_PACKAGE:-@carlosomarcr/gitowl}"
 
 say()  { printf '\033[1;35m◆\033[0m %s\n' "$1"; }
 fail() { printf '\033[1;31m✖\033[0m %s\n' "$1" >&2; exit 1; }
