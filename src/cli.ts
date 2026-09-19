@@ -16,6 +16,7 @@ cli
   .option("-y, --yes", "Skip confirmation prompts")
   .option("--single", "Force a single commit instead of grouping")
   .option("--allow-secrets", "Commit files flagged as possible secrets instead of leaving them out")
+  .option("--hunks", "Split unrelated changes inside the same file into separate commits")
   .option("--dry-run", "Show the proposed message without committing")
   .option("--push", "Push after committing without asking")
   .option("--no-push", "Never push after committing")
@@ -30,6 +31,7 @@ cli
       dryRun: options.dryRun,
       single: options.single,
       allowSecrets: options.allowSecrets,
+      hunks: options.hunks,
       push: options.push === true,
       noPush: options.push === false,
       provider: options.provider,
@@ -66,10 +68,13 @@ if (first !== "update" && !process.argv.some((a) => ["-h", "--help", "-v", "--ve
   scheduleUpdateNotice();
 }
 
-try {
+// No top-level await: the standalone binary is bundled as CommonJS.
+async function main(): Promise<void> {
   cli.parse(process.argv, { run: false });
   await cli.runMatchedCommand();
-} catch (err) {
+}
+
+main().catch((err) => {
   console.error(err instanceof Error ? err.message : err);
   process.exit(1);
-}
+});

@@ -82,6 +82,9 @@ export function assignLeftovers(groups: CommitGroup[], missing: string[], summar
  */
 export function normalizePlan(raw: RawPlan, summaries: FileSummary[]): { groups: CommitGroup[]; problems: string[] } {
   const known = new Set(summaries.map((s) => s.path));
+  // A file that was split into hunks may be named plainly by the model: that means all its hunks.
+  const hunksOf = new Map<string, string[]>();
+  for (const s of summaries) if (s.file) hunksOf.set(s.file, [...(hunksOf.get(s.file) ?? []), s.path]);
   const byOrig = new Map(summaries.filter((s) => s.orig).map((s) => [s.orig!, s.path]));
   const seen = new Set<string>();
   const problems: string[] = [];
@@ -91,6 +94,17 @@ export function normalizePlan(raw: RawPlan, summaries: FileSummary[]): { groups:
     const files: string[] = [];
     for (const original of c.files) {
       const cleaned = original.trim().replace(/^\.\//, "").replace(/\\/g, "/");
+      const expanded = !known.has(cleaned) ? hunksOf.get(cleaned) : undefined;
+      if (expanded) {
+        for (const unit of expanded) {
+          if (seen.has(unit)) problems.push(`"${unit}" appears in more than one commit`);
+          else {
+            seen.add(unit);
+            files.push(unit);
+          }
+        }
+        continue;
+      }
       const path = known.has(cleaned) ? cleaned : (byOrig.get(cleaned) ?? cleaned);
       if (!known.has(path)) problems.push(`"${original}" is not a changed file`);
       else if (seen.has(path)) problems.push(`"${path}" appears in more than one commit`);
@@ -152,6 +166,9 @@ function planPrompt(input: PlanInput): { system: string; user: string } {
     "- rationale: max 15 words on why these files belong together.",
     ...styleParts(rules, input.language, input.instructions),
     monorepoHint(summaries, rules),
+    summaries.some((s) => s.file)
+      ? 'Some files are split into hunks named "path#N" (see the list). Different hunks of one file may go into different commits when they are unrelated changes; use the exact "path#N" ids. Keep the hunks of a file together when they belong to one change.'
+      : "",
     hints,
   ]
     .filter(Boolean)

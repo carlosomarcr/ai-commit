@@ -1,6 +1,7 @@
-import { header, type CommitMessage } from "../commit/generate.js";
+import { formatMessage, header, type CommitMessage } from "../commit/generate.js";
 import { collapse, dropGroup, mergeGroups, moveFiles, setMessage } from "../grouping/edit.js";
 import type { CommitGroup, CommitPlan, FileSummary } from "../grouping/types.js";
+import { editInEditor } from "./editor.js";
 import { p, pc, statusColor, unwrap } from "./theme.js";
 
 export interface ReviewContext {
@@ -22,14 +23,49 @@ export function renderGroup(g: CommitGroup, summaries: FileSummary[]): string {
   if (g.rationale) lines.push(pc.dim(`↳ ${g.rationale}`), "");
   const body = g.message.body?.trim();
   if (body) lines.push(pc.dim(body), "");
-  for (const path of g.files.slice(0, MAX_FILES_SHOWN)) {
-    const s = summaries.find((x) => x.path === path);
-    const letter = s?.status ?? "M";
-    const counts = s ? pc.dim(` +${s.additions} -${s.deletions}`) : "";
-    lines.push(`${(statusColor[letter] ?? pc.white)(letter)} ${path}${counts}`);
+  const rows = displayRows(g.files, summaries);
+  for (const row of rows.slice(0, MAX_FILES_SHOWN)) {
+    lines.push(`${(statusColor[row.status] ?? pc.white)(row.status)} ${row.name}${row.note ? pc.dim(`  ${row.note}`) : ""}`);
   }
-  if (g.files.length > MAX_FILES_SHOWN) lines.push(pc.dim(`… and ${g.files.length - MAX_FILES_SHOWN} more`));
+  if (rows.length > MAX_FILES_SHOWN) lines.push(pc.dim(`… and ${rows.length - MAX_FILES_SHOWN} more`));
   return lines.join("\n");
+}
+
+interface Row {
+  name: string;
+  status: string;
+  note: string;
+}
+
+/** One row per file; the hunks of a split file are folded into a single row ("hunks 1,3"). */
+export function displayRows(units: string[], summaries: FileSummary[]): Row[] {
+  const rows: Row[] = [];
+  const byFile = new Map<string, { row: Row; hunks: number[]; add: number; del: number }>();
+  for (const unit of units) {
+    const s = summaries.find((x) => x.path === unit);
+    if (s?.file) {
+      let entry = byFile.get(s.file);
+      if (!entry) {
+        entry = { row: { name: s.file, status: "M", note: "" }, hunks: [], add: 0, del: 0 };
+        byFile.set(s.file, entry);
+        rows.push(entry.row);
+      }
+      entry.hunks.push(s.hunk ?? 0);
+      entry.add += s.additions;
+      entry.del += s.deletions;
+      const list = [...entry.hunks].sort((a, b) => a - b).join(",");
+      entry.row.note = `${entry.hunks.length === 1 ? "hunk" : "hunks"} ${list}  +${entry.add} -${entry.del}`;
+    } else {
+      rows.push({ name: unit, status: s?.status ?? "M", note: s ? `+${s.additions} -${s.deletions}` : "" });
+    }
+  }
+  return rows;
+}
+
+/** Label for one selectable unit in the move/split prompts. */
+export function unitLabel(unit: string, summaries: FileSummary[]): string {
+  const s = summaries.find((x) => x.path === unit);
+  return s?.file ? `${s.file} · hunk ${s.hunk} (+${s.additions} -${s.deletions})` : unit;
 }
 
 function showPlan(groups: CommitGroup[], summaries: FileSummary[]): void {
@@ -43,6 +79,13 @@ export function parseHeader(text: string, previous: CommitMessage): CommitMessag
   const m = /^(\w+)(?:\(([^)]+)\))?: (.+)$/.exec(text.trim());
   if (m) return { ...previous, type: m[1], scope: m[2] ?? null, title: m[3]! };
   return { ...previous, type: null, scope: null, title: text.trim() };
+}
+
+/** Turns text edited in an editor (first line = header, rest = body) back into a message. */
+export function parseMessage(text: string, previous: CommitMessage): CommitMessage {
+  const [first = "", ...rest] = text.trim().split(/\r?\n/);
+  const body = rest.join("\n").trim();
+  return { ...parseHeader(first, previous), body: body || null };
 }
 
 const label = (g: CommitGroup, i: number) => `${i + 1}. ${header(g.message)}`;
@@ -112,6 +155,7 @@ export async function reviewPlan(initial: CommitPlan, ctx: ReviewContext): Promi
           message: header(g.message),
           options: [
             { value: "title", label: "Edit title" },
+            { value: "editor", label: "Edit full message in your editor", hint: "title and body" },
             { value: "regen", label: "Regenerate message" },
             { value: "skip", label: "Skip this commit", hint: "its files stay uncommitted" },
             { value: BACK, label: "← Back" },
@@ -124,6 +168,12 @@ export async function reviewPlan(initial: CommitPlan, ctx: ReviewContext): Promi
         );
         groups = setMessage(groups, g.id, parseHeader(text, g.message));
         dirty = true;
+      } else if (what === "editor") {
+        const edited = await editInEditor(formatMessage(g.message));
+        if (edited) {
+          groups = setMessage(groups, g.id, parseMessage(edited, g.message));
+          dirty = true;
+        } else p.log.warn("No changes from the editor; keeping the message as it was.");
       } else if (what === "regen") {
         groups = await regen(groups, [g.id], ctx);
         dirty = true;
@@ -139,7 +189,7 @@ export async function reviewPlan(initial: CommitPlan, ctx: ReviewContext): Promi
       const files = unwrap(
         await p.multiselect({
           message: "Files to move",
-          options: from.files.map((f) => ({ value: f, label: f })),
+          options: from.files.map((f) => ({ value: f, label: unitLabel(f, ctx.summaries) })),
           required: true,
         }),
       );
@@ -164,7 +214,7 @@ export async function reviewPlan(initial: CommitPlan, ctx: ReviewContext): Promi
       const files = unwrap(
         await p.multiselect({
           message: "Files that go into the new commit",
-          options: from.files.map((f) => ({ value: f, label: f })),
+          options: from.files.map((f) => ({ value: f, label: unitLabel(f, ctx.summaries) })),
           required: true,
         }),
       );

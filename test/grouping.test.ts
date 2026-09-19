@@ -171,3 +171,47 @@ describe("renderDiffs", () => {
     expect(out.length).toBeLessThan(1500);
   });
 });
+
+describe("hunk units in plans", () => {
+  const unit = (file: string, hunk: number): FileSummary => ({
+    path: `${file}#${hunk}`, file, hunk, status: "M", additions: 1, deletions: 1, binary: false, kind: "source",
+  });
+  const summaries = [unit("a.ts", 1), unit("a.ts", 2), unit("a.ts", 3), sum("README.md")];
+
+  it("classifies hunk units like their file", () => {
+    expect(classify("src/a.test.ts#2")).toBe("test");
+    expect(classify("docs/x.md#1")).toBe("docs");
+  });
+
+  it("expands a plainly named split file into all its hunks", () => {
+    const { groups, problems } = normalizePlan(
+      { commits: [{ type: "feat", title: "a", files: ["a.ts"] }, { type: "docs", title: "d", files: ["README.md"] }] },
+      summaries,
+    );
+    expect(groups[0]!.files).toEqual(["a.ts#1", "a.ts#2", "a.ts#3"]);
+    expect(problems).toEqual([]);
+  });
+
+  it("accepts hunks of one file spread over commits and flags duplicates/missing ones", () => {
+    const ok = normalizePlan(
+      { commits: [{ type: "feat", title: "x", files: ["a.ts#1", "a.ts#3"] }, { type: "fix", title: "y", files: ["a.ts#2", "README.md"] }] },
+      summaries,
+    );
+    expect(ok.problems).toEqual([]);
+    expect(ok.groups.map((g) => g.files)).toEqual([["a.ts#1", "a.ts#3"], ["a.ts#2", "README.md"]]);
+
+    const bad = normalizePlan({ commits: [{ type: "feat", title: "x", files: ["a.ts#1", "a.ts#1"] }] }, summaries);
+    expect(bad.problems.join(" ")).toMatch(/more than one commit/);
+    expect(bad.groups.flatMap((g) => g.files).sort()).toEqual(["README.md", "a.ts#1", "a.ts#2", "a.ts#3"]); // leftovers placed
+  });
+
+  it("tells the model how to name hunks", async () => {
+    let seen = "";
+    const provider: Provider = {
+      name: "m", listModels: async () => [],
+      generate: async ({ system }) => ((seen = system), JSON.stringify({ commits: [{ type: "feat", title: "t", files: ["a.ts", "README.md"] }] })),
+    };
+    await planCommits({ provider, summaries, language: "en", rules });
+    expect(seen).toContain('"path#N"');
+  });
+});

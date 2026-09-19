@@ -1,5 +1,6 @@
 import * as git from "../git/git.js";
 import { formatMessage } from "../commit/generate.js";
+import { applyHunks, type HunkFile } from "./hunks.js";
 import type { CommitGroup, FileSummary } from "./types.js";
 
 export interface ExecuteContext {
@@ -12,6 +13,8 @@ export interface ExecuteContext {
   restoreSkipped: boolean;
   /** Groups the user chose to skip before committing; treated like skipped ones at the end. */
   leftover?: CommitGroup[];
+  /** Files that were split into hunks (`--hunks`); their units look like "path#2". */
+  hunkFiles?: Map<string, HunkFile>;
 }
 
 export type FailureDecision = "retry" | "skip" | "abort";
@@ -32,35 +35,65 @@ export interface ExecuteResult {
   aborted: boolean;
 }
 
-/** All paths a group touches, including the old side of renames. */
-function pathsFor(group: CommitGroup, summaries: FileSummary[]): string[] {
-  const out = new Set<string>();
-  for (const f of group.files) {
-    out.add(f);
-    const orig = summaries.find((s) => s.path === f)?.orig;
-    if (orig) out.add(orig);
+/** A group's units split into whole files (with the old side of renames) and hunks per file. */
+function splitUnits(groups: CommitGroup[], summaries: FileSummary[]): { whole: string[]; hunks: Map<string, string[]> } {
+  const whole = new Set<string>();
+  const hunks = new Map<string, string[]>();
+  for (const g of groups) {
+    for (const unit of g.files) {
+      const s = summaries.find((x) => x.path === unit);
+      if (s?.file) hunks.set(s.file, [...(hunks.get(s.file) ?? []), unit]);
+      else {
+        whole.add(unit);
+        if (s?.orig) whole.add(s.orig);
+      }
+    }
   }
-  return [...out];
-}
-
-async function stageFromTree(paths: string[], tree: Map<string, git.TreeEntry>): Promise<void> {
-  await git.setIndexEntries(paths.map((path) => ({ path, entry: tree.get(path) ?? null })));
+  return { whole: [...whole], hunks };
 }
 
 /**
  * Commits each group in order, using only index plumbing: for every group the index is rebuilt as
  * HEAD plus that group's files taken from `fullTree`. The working tree is never touched, and
- * paths never go through a shell.
+ * paths never go through a shell. Files split into hunks get a blob built from the original text
+ * plus every hunk committed so far (line numbers always refer to that original).
  */
 export async function executePlan(groups: CommitGroup[], ctx: ExecuteContext, hooks: ExecuteHooks): Promise<ExecuteResult> {
   const tree = await git.lsTree(ctx.fullTree);
   const result: ExecuteResult = { committed: [], skipped: [], aborted: false };
+  const applied = new Set<string>(); // hunk units already committed
+
+  const stageWhole = (paths: string[], from: Map<string, git.TreeEntry>) =>
+    git.setIndexEntries(paths.map((path) => ({ path, entry: from.get(path) ?? null })));
+
+  /** Puts `file` in the index with exactly the chosen hunks applied to its original text. */
+  const stageHunkFile = async (file: string, units: Set<string>) => {
+    const hf = ctx.hunkFiles?.get(file);
+    const entry = tree.get(file);
+    if (!hf || !entry) return;
+    const selected = hf.hunks.filter((h) => units.has(`${file}#${h.index}`));
+    if (selected.length === hf.hunks.length) return git.setIndexEntries([{ path: file, entry }]);
+    const sha = await git.hashObject(applyHunks(hf.base, selected));
+    return git.setIndexEntries([{ path: file, entry: { mode: entry.mode, sha } }]);
+  };
+
+  const stageGroup = async (group: CommitGroup) => {
+    const { whole, hunks } = splitUnits([group], ctx.summaries);
+    await stageWhole(whole, tree);
+    for (const [file, units] of hunks) await stageHunkFile(file, new Set([...applied, ...units]));
+  };
+
+  /** Re-stages `pending` groups exactly as the user had them staged (only meaningful for staged scope). */
+  const restore = async (pending: CommitGroup[], source: Map<string, git.TreeEntry>) => {
+    const { whole, hunks } = splitUnits(pending, ctx.summaries);
+    await stageWhole(whole, source);
+    if (ctx.restoreSkipped) for (const [file, units] of hunks) await stageHunkFile(file, new Set([...applied, ...units]));
+  };
 
   // Keep what was already committed; put the user's original staging back for what is left.
   const abort = async (from: number): Promise<ExecuteResult> => {
-    const rest = groups.slice(from).flatMap((g) => pathsFor(g, ctx.summaries));
     await git.resetIndexToHead();
-    await stageFromTree(rest, await git.lsTree(ctx.origTree));
+    await restore(groups.slice(from), await git.lsTree(ctx.origTree));
     result.aborted = true;
     return result;
   };
@@ -68,11 +101,10 @@ export async function executePlan(groups: CommitGroup[], ctx: ExecuteContext, ho
   for (const [i, group] of groups.entries()) {
     if (hooks.shouldStop?.()) return abort(i);
     hooks.onStart?.(group, i, groups.length);
-    const paths = pathsFor(group, ctx.summaries);
 
     for (;;) {
       await git.resetIndexToHead();
-      await stageFromTree(paths, tree);
+      await stageGroup(group);
       if (!(await git.hasStagedChanges())) {
         hooks.onEmpty?.(group);
         result.skipped.push(group);
@@ -81,6 +113,7 @@ export async function executePlan(groups: CommitGroup[], ctx: ExecuteContext, ho
       try {
         const hash = await git.commit(formatMessage(group.message));
         result.committed.push({ group, hash });
+        for (const unit of group.files) applied.add(unit);
         hooks.onCommitted?.(group, hash);
         break;
       } catch (err) {
@@ -96,11 +129,6 @@ export async function executePlan(groups: CommitGroup[], ctx: ExecuteContext, ho
   }
 
   await git.resetIndexToHead();
-  if (ctx.restoreSkipped) {
-    await stageFromTree(
-      [...result.skipped, ...(ctx.leftover ?? [])].flatMap((g) => pathsFor(g, ctx.summaries)),
-      tree,
-    );
-  }
+  if (ctx.restoreSkipped) await restore([...result.skipped, ...(ctx.leftover ?? [])], tree);
   return result;
 }

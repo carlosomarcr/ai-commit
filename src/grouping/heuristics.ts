@@ -30,7 +30,11 @@ const CONFIG_RE =
 const base = (p: string) => p.slice(p.lastIndexOf("/") + 1).toLowerCase();
 const dir = (p: string) => (p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "");
 
-export function classify(path: string): FileKind {
+/** "src/a.ts#2" (a hunk unit) -> "src/a.ts" */
+export const fileOf = (p: string) => p.replace(/#\d+$/, "");
+
+export function classify(input: string): FileKind {
+  const path = fileOf(input);
   const b = base(path);
   if (LOCK_TO_MANIFEST[b]) return "lock";
   if (GENERATED_RE.test(path)) return "generated";

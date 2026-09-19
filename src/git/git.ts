@@ -261,3 +261,38 @@ export async function operationInProgress(): Promise<string | null> {
 export function readTreeSync(tree: string): void {
   execaSync("git", ["read-tree", tree]);
 }
+
+/** The editor git itself would open for a commit message. */
+export async function editorCommand(): Promise<string> {
+  const r = await git(["var", "GIT_EDITOR"], { reject: false });
+  return (r.exitCode === 0 && r.stdout.trim()) || process.env.VISUAL || process.env.EDITOR || (process.platform === "win32" ? "notepad" : "vi");
+}
+
+/** Staged diff of one file with 1 line of context and the diff text left exactly as git printed it. */
+export async function stagedHunkDiff(path: string): Promise<string> {
+  const r = await execa("git", ["-c", "core.quotepath=false", "--literal-pathspecs", "diff", "--cached", "--no-color", "-U1", "--", path], {
+    stripFinalNewline: false,
+  });
+  return r.stdout;
+}
+
+/** Raw bytes of a blob. */
+export async function catBlob(sha: string): Promise<Buffer> {
+  const r = await execa("git", ["cat-file", "blob", sha], { encoding: "buffer", stripFinalNewline: false });
+  return Buffer.from(r.stdout);
+}
+
+/** The file as it is in HEAD, or null when HEAD doesn't have it. */
+export async function headBlob(path: string): Promise<Buffer | null> {
+  try {
+    const r = await execa("git", ["--literal-pathspecs", "show", `HEAD:${path}`], { encoding: "buffer", stripFinalNewline: false });
+    return Buffer.from(r.stdout);
+  } catch {
+    return null;
+  }
+}
+
+/** Stores text as a blob object and returns its id. */
+export async function hashObject(content: string): Promise<string> {
+  return (await execa("git", ["hash-object", "-w", "--stdin"], { input: content })).stdout.trim();
+}

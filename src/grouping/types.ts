@@ -12,6 +12,9 @@ export interface FileSummary {
   deletions: number;
   binary: boolean;
   kind: FileKind;
+  /** Set on hunk units: the real file this hunk belongs to, and its position in that file. */
+  file?: string;
+  hunk?: number;
   /** Why the diff content is never sent to the AI (it is still committed). */
   withheld?: "sensitive" | "ignored";
   /** Diff excerpt; absent for lockfiles, generated files, binaries and files past the budget. */

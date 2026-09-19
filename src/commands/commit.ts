@@ -1,6 +1,7 @@
 import { header, type CommitMessage } from "../commit/generate.js";
 import { loadConfig, type Config } from "../config/store.js";
 import { executePlan } from "../grouping/execute.js";
+import { buildHunkUnits, type HunkFile } from "../grouping/hunks.js";
 import { messageForFiles, planCommits, singlePlan, type PlanInput } from "../grouping/planner.js";
 import { collectSummaries } from "../grouping/summarize.js";
 import type { CommitGroup, CommitPlan, FileSummary } from "../grouping/types.js";
@@ -21,6 +22,7 @@ export interface CommitOptions {
   dryRun?: boolean;
   single?: boolean;
   allowSecrets?: boolean;
+  hunks?: boolean;
   push?: boolean;
   noPush?: boolean;
   provider?: string;
@@ -124,6 +126,8 @@ export async function runCommit(opts: CommitOptions): Promise<void> {
   let planInput: (provider: Provider, extra?: string) => PlanInput;
   let summaries: FileSummary[];
   let allSummaries: FileSummary[];
+  let execSummaries: FileSummary[];
+  let hunkFiles: Map<string, HunkFile> | undefined;
   let leftover: CommitGroup[] = [];
   try {
     const spin = p.spinner();
@@ -151,6 +155,18 @@ export async function runCommit(opts: CommitOptions): Promise<void> {
           p.outro(pc.yellow("Nothing left to commit after leaving out the flagged files."));
           return;
         }
+      }
+    }
+
+    const excluded = new Set(leftover.flatMap((g) => g.files));
+    execSummaries = allSummaries;
+    if (opts.hunks && !opts.single) {
+      const built = await buildHunkUnits(summaries, await git.lsTree(fullTree));
+      if (built.files.size > 0) {
+        summaries = built.summaries;
+        hunkFiles = built.files;
+        execSummaries = [...allSummaries.filter((x) => excluded.has(x.path)), ...summaries];
+        p.log.info(`Split ${built.files.size} file(s) into hunks so unrelated changes can go in separate commits.`);
       }
     }
 
@@ -230,7 +246,7 @@ export async function runCommit(opts: CommitOptions): Promise<void> {
   let spin = p.spinner();
   const result = await executePlan(
     groups,
-    { fullTree, origTree, summaries: allSummaries, restoreSkipped: !useAll, leftover },
+    { fullTree, origTree, summaries: execSummaries!, restoreSkipped: !useAll, leftover, hunkFiles },
     {
       shouldStop: guard.shouldStop,
       onStart: (g, i, n) => {
