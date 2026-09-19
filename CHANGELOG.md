@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Secret protection: diffs are scanned for API keys, tokens, private keys and hard-coded passwords. Secrets are redacted and files like .env or *.pem are withheld from the AI; flagged files can be left out of the commit (`--allow-secrets` to override).
+- `.aicommitignore`: files listed there are committed but their content is never sent to the AI.
+- Provider calls have timeouts and clear network errors (refused, DNS, timeout) instead of "fetch failed".
+- Refuses to run during a merge/rebase/cherry-pick; Ctrl+C restores your staging (or finishes the current commit and stops).
+- Very large change sets (250+ files) are grouped by folder/tests/lockfiles; monorepo commits are scoped by package.
+
 - New providers: Anthropic (Claude) and Google Gemini.
 - API keys now live in the system keyring (Windows Credential Manager, macOS Keychain, libsecret); older plain-text keys are migrated automatically. Falls back to the config file only when no keyring exists.
 - New `aicommit doctor` (with `--deep` for a real test generation) and `aicommit config` (menu, plus `get`/`set`/`path`/`reset`).
