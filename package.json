@@ -50,5 +50,13 @@
     "cli",
     "ollama",
     "conventional-commits"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/carlosomarcr/ai-commit.git"
+  },
+  "homepage": "https://github.com/carlosomarcr/ai-commit#readme",
+  "bugs": {
+    "url": "https://github.com/carlosomarcr/ai-commit/issues"
+  }
 }

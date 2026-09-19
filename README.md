@@ -32,8 +32,8 @@ AI-written git commits that **group your changes into logical commits**, follow 
 npm install -g aicommit-cli        # or: pnpm add -g aicommit-cli
 
 # one-liners that also run the setup wizard
-curl -fsSL https://raw.githubusercontent.com/<you>/aicommit/main/install.sh | sh          # macOS / Linux
-irm https://raw.githubusercontent.com/<you>/aicommit/main/install.ps1 | iex               # Windows (PowerShell)
+curl -fsSL https://raw.githubusercontent.com/carlosomarcr/ai-commit/main/install.sh | sh          # macOS / Linux
+irm https://raw.githubusercontent.com/carlosomarcr/ai-commit/main/install.ps1 | iex               # Windows (PowerShell)
 ```
 
 Standalone binaries (no Node needed) for Windows, macOS and Linux are attached to every [release](../../releases). They keep the API key in the config file (owner-only permissions) because the OS keyring is a native module that cannot be embedded; the npm install uses the keyring.
