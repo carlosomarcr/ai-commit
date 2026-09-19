@@ -11,4 +11,8 @@ export interface Provider {
   generate(opts: GenerateOptions): Promise<string>;
 }
 
-export class ProviderError extends Error {}
+export class ProviderError extends Error {
+  constructor(message: string, readonly status?: number) {
+    super(message);
+  }
+}

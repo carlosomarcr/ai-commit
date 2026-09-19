@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OllamaProvider } from "../src/providers/ollama.js";
+import { errorDetail } from "../src/providers/openai-compatible.js";
+import { ProviderError } from "../src/providers/types.js";
 import { createProvider } from "../src/providers/registry.js";
 
 const base = { configVersion: 1, updateCheck: true, language: "en", push: "ask" as const };
@@ -56,5 +58,21 @@ describe("ollama provider", () => {
   it("reports an invalid key clearly", async () => {
     fetchMock.mockResolvedValue(new Response("unauthorized", { status: 401 }));
     await expect(new OllamaProvider("m", "https://ollama.com", "bad").listModels()).rejects.toThrow(/invalid API key/);
+  });
+
+  it("surfaces plan/billing errors readably and keeps the status", async () => {
+    const body = JSON.stringify({ error: "this model is not included in your free usage, add usage credits: https://ollama.com/settings" });
+    fetchMock.mockResolvedValue(new Response(body, { status: 402 }));
+    const err = await new OllamaProvider("m", "https://ollama.com", "k").generate({ system: "s", user: "u" }).catch((e) => e);
+    expect(err).toBeInstanceOf(ProviderError);
+    expect(err.status).toBe(402);
+    expect(err.message).toContain("not available on your plan");
+    expect(err.message).toContain("https://ollama.com/settings");
+    expect(err.message).not.toContain('{"error"');
+  });
+
+  it("extracts OpenAI-style nested error messages", () => {
+    expect(errorDetail('{"error":{"message":"bad model"}}')).toBe("bad model");
+    expect(errorDetail("plain text")).toBe("plain text");
   });
 });

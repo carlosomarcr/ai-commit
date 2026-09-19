@@ -54,10 +54,26 @@ export class OpenAICompatibleProvider implements Provider {
   }
 }
 
+/** Pulls the human message out of the common JSON error shapes; falls back to the raw text. */
+export function errorDetail(body: string): string {
+  try {
+    const json = JSON.parse(body) as { error?: string | { message?: string }; message?: string };
+    const msg = typeof json.error === "string" ? json.error : (json.error?.message ?? json.message);
+    if (msg) return msg;
+  } catch {
+    // not JSON
+  }
+  return body.trim();
+}
+
 export async function assertOk(res: Response, name: string): Promise<void> {
   if (res.ok) return;
-  const body = await res.text().catch(() => "");
+  const detail = errorDetail(await res.text().catch(() => "")).slice(0, 500);
   const hint =
-    res.status === 401 ? " (invalid API key?)" : res.status === 429 ? " (rate limited)" : "";
-  throw new ProviderError(`${name} responded ${res.status}${hint}: ${body.slice(0, 200)}`);
+    res.status === 401 ? " (invalid API key?)"
+    : res.status === 402 || res.status === 403 ? " (model not available on your plan?)"
+    : res.status === 404 ? " (model not found?)"
+    : res.status === 429 ? " (rate limited)"
+    : "";
+  throw new ProviderError(`${name} responded ${res.status}${hint}: ${detail}`, res.status);
 }

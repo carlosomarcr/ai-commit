@@ -5,6 +5,7 @@ import { loadConfig, type Config } from "../config/store.js";
 import { createProvider } from "../providers/registry.js";
 import { banner, p, pc, statusColor, unwrap } from "../ui/theme.js";
 import { runInit } from "./init.js";
+import { offerRecovery } from "./recover.js";
 
 export interface CommitOptions {
   all?: boolean;
@@ -27,18 +28,16 @@ export async function runCommit(opts: CommitOptions): Promise<void> {
     process.exit(1);
   }
 
-  let config = await loadConfig();
-  if (!config) {
-    p.log.info("First run detected, let's set things up.");
-    config = await runInit();
-  }
-  config = {
-    ...config,
-    provider: opts.provider ?? config.provider,
-    model: opts.model ?? (opts.provider ? undefined : config.model),
-    language: opts.lang ?? config.language,
+  const stored = await loadConfig();
+  if (!stored) p.log.info("First run detected, let's set things up.");
+  const base = stored ?? (await runInit());
+  let config: Config = {
+    ...base,
+    provider: opts.provider ?? base.provider,
+    model: opts.model ?? (opts.provider ? undefined : base.model),
+    language: opts.lang ?? base.language,
   };
-  const provider = createProvider(config);
+  let provider = createProvider(config);
 
   // --- Collect changes -----------------------------------------------------
   let files = await git.status();
@@ -95,8 +94,15 @@ export async function runCommit(opts: CommitOptions): Promise<void> {
       spin.stop("Message ready");
     } catch (err) {
       spin.stop(pc.red("Generation failed"));
-      p.cancel(err instanceof Error ? err.message : String(err));
-      process.exit(1);
+      const interactive = !opts.yes && Boolean(process.stdin.isTTY);
+      const recovered: { config: Config } | null = interactive ? await offerRecovery(err, config, { persist: !opts.provider }) : null;
+      if (!recovered) {
+        p.cancel(interactive ? "Cancelled, nothing committed." : err instanceof Error ? err.message : String(err));
+        process.exit(interactive ? 0 : 1);
+      }
+      config = recovered.config;
+      provider = createProvider(config);
+      continue;
     }
 
     p.note(pc.bold(formatMessage(message)), "Proposed commit");
