@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `--hunks`: unrelated changes inside a single file can go into separate commits (only when applying all hunks reproduces the staged file exactly).
+- Edit the full commit message (title and body) in your own editor from the review screen.
+- Standalone binaries (Node SEA) via `pnpm build:binary`, one-line installers (`install.sh`, `install.ps1`), CI on Linux/macOS/Windows and a tag-triggered release workflow.
+- README, MIT license.
+
 - Secret protection: diffs are scanned for API keys, tokens, private keys and hard-coded passwords. Secrets are redacted and files like .env or *.pem are withheld from the AI; flagged files can be left out of the commit (`--allow-secrets` to override).
 - `.aicommitignore`: files listed there are committed but their content is never sent to the AI.
 - Provider calls have timeouts and clear network errors (refused, DNS, timeout) instead of "fetch failed".
