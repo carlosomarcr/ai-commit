@@ -1,8 +1,14 @@
-import * as git from "../git/git.js";
-import { formatMessage, generateMessage, header, validateMessage, type CommitMessage } from "../commit/generate.js";
-import { loadRules } from "../rules/index.js";
+import { header, type CommitMessage } from "../commit/generate.js";
 import { loadConfig, type Config } from "../config/store.js";
+import { executePlan } from "../grouping/execute.js";
+import { messageForFiles, planCommits, singlePlan, type PlanInput } from "../grouping/planner.js";
+import { collectSummaries } from "../grouping/summarize.js";
+import type { CommitGroup, CommitPlan } from "../grouping/types.js";
+import * as git from "../git/git.js";
 import { createProvider } from "../providers/registry.js";
+import type { Provider } from "../providers/types.js";
+import { loadRules } from "../rules/index.js";
+import { renderGroup, reviewPlan } from "../ui/plan-review.js";
 import { banner, p, pc, statusColor, unwrap } from "../ui/theme.js";
 import { runInit } from "./init.js";
 import { offerRecovery } from "./recover.js";
@@ -11,12 +17,48 @@ export interface CommitOptions {
   all?: boolean;
   yes?: boolean;
   dryRun?: boolean;
+  single?: boolean;
   push?: boolean;
   noPush?: boolean;
   provider?: string;
   model?: string;
   lang?: string;
   instructions?: string;
+}
+
+interface AiState {
+  config: Config;
+  provider: Provider;
+}
+
+const errText = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
+/**
+ * Runs an AI call with a spinner. On failure (plan limits, bad model, ...) the user can switch
+ * model/provider and retry; returns null if they cancel. Non-interactive runs rethrow.
+ */
+async function withRecovery<T>(
+  state: AiState,
+  opts: CommitOptions,
+  label: string,
+  run: (provider: Provider) => Promise<T>,
+): Promise<T | null> {
+  for (;;) {
+    const spin = p.spinner();
+    spin.start(label);
+    try {
+      const value = await run(state.provider);
+      spin.stop(label.replace(/\.{3}$/, ""));
+      return value;
+    } catch (err) {
+      spin.stop(pc.red("Generation failed"));
+      if (opts.yes || !process.stdin.isTTY) throw err;
+      const recovered = await offerRecovery(err, state.config, { persist: !opts.provider });
+      if (!recovered) return null;
+      state.config = recovered.config;
+      state.provider = createProvider(state.config);
+    }
+  }
 }
 
 export async function runCommit(opts: CommitOptions): Promise<void> {
@@ -31,138 +73,169 @@ export async function runCommit(opts: CommitOptions): Promise<void> {
   const stored = await loadConfig();
   if (!stored) p.log.info("First run detected, let's set things up.");
   const base = stored ?? (await runInit());
-  let config: Config = {
+  const config: Config = {
     ...base,
     provider: opts.provider ?? base.provider,
     model: opts.model ?? (opts.provider ? undefined : base.model),
     language: opts.lang ?? base.language,
   };
-  let provider = createProvider(config);
+  const state: AiState = { config, provider: createProvider(config) };
 
-  // --- Collect changes -----------------------------------------------------
-  let files = await git.status();
+  // --- Decide what is in scope ---------------------------------------------
+  const files = await git.status();
   if (files.length === 0) {
     p.outro(pc.green("Working tree clean, nothing to commit."));
     return;
   }
-
-  let staged = files.filter(git.isStaged);
-  if (staged.length === 0 || opts.all) {
-    const toStage = opts.all ? files : files.filter((f) => !git.isStaged(f));
-    p.note(renderFiles(toStage), `Unstaged changes (${toStage.length})`);
-    const ok =
-      opts.all || opts.yes || unwrap(await p.confirm({ message: "Nothing staged. Stage all these files?" }));
-    if (!ok) {
-      p.cancel("Nothing staged. Use `git add` or rerun with --all.");
-      return;
-    }
-    await git.stageAll();
-    files = await git.status();
-    staged = files.filter(git.isStaged);
-  } else {
-    p.note(renderFiles(staged), `Staged changes (${staged.length})`);
+  if (files.some(git.hasConflict)) {
+    p.cancel("There are unresolved merge conflicts. Resolve them first.");
+    process.exit(1);
   }
 
-  // --- Rules + context -----------------------------------------------------
-  const [stat, diff, subjects, root] = await Promise.all([
-    git.stagedStat(),
-    git.stagedDiff(),
-    git.recentSubjects(),
-    git.root(),
-  ]);
-  const rules = await loadRules({ cwd: process.cwd(), root, subjects });
-  const language = opts.lang ?? rules.language ?? config.language;
-  const applied = rules.sources.filter((s) => s.kind !== "history");
-  if (applied.length) {
-    p.log.info(`${pc.bold("Rules applied")}  ${pc.dim(applied.map((s) => s.label).join(" · "))}`);
+  // Respect deliberate staging; otherwise take everything. The original index is snapshotted so
+  // any cancel/failure before committing puts it back exactly as it was.
+  const origTree = await git.writeTree();
+  const alreadyStaged = files.filter(git.isStaged);
+  const useAll = Boolean(opts.all) || alreadyStaged.length === 0;
+  if (useAll) await git.stageAll();
+  else {
+    const left = files.length - alreadyStaged.length;
+    if (left > 0) p.log.info(`${left} unstaged file(s) left out. Use ${pc.cyan("--all")} to include them.`);
   }
+  const fullTree = await git.writeTree();
+  const restoreIndex = () => git.readTree(origTree).catch(() => undefined);
 
-  let instructions = opts.instructions;
-  let message: CommitMessage;
-  for (;;) {
+  const inScope = (await git.status()).filter(git.isStaged);
+  if (inScope.length === 0) {
+    await restoreIndex();
+    p.outro(pc.green("Nothing to commit."));
+    return;
+  }
+  p.note(renderFiles(inScope), `${useAll ? "Changes" : "Staged changes"} (${inScope.length})`);
+
+  let plan: CommitPlan | null;
+  let planInput: (provider: Provider, extra?: string) => PlanInput;
+  let summaries;
+  try {
     const spin = p.spinner();
-    spin.start(`Asking ${pc.cyan(provider.name)} for a commit message`);
-    try {
-      message = await generateMessage({
-        provider,
-        stat,
-        diff,
-        language,
-        rules,
-        instructions,
-      });
-      spin.stop("Message ready");
-    } catch (err) {
-      spin.stop(pc.red("Generation failed"));
-      const interactive = !opts.yes && Boolean(process.stdin.isTTY);
-      const recovered: { config: Config } | null = interactive ? await offerRecovery(err, config, { persist: !opts.provider }) : null;
-      if (!recovered) {
-        p.cancel(interactive ? "Cancelled, nothing committed." : err instanceof Error ? err.message : String(err));
-        process.exit(interactive ? 0 : 1);
-      }
-      config = recovered.config;
-      provider = createProvider(config);
-      continue;
+    spin.start(`Analyzing ${inScope.length} file(s)`);
+    summaries = await collectSummaries(inScope);
+    spin.stop(`Analyzed ${inScope.length} file(s)`);
+
+    const [subjects, root] = await Promise.all([git.recentSubjects(), git.root()]);
+    const rules = await loadRules({ cwd: process.cwd(), root, subjects });
+    const applied = rules.sources.filter((s) => s.kind !== "history");
+    if (applied.length) {
+      p.log.info(`${pc.bold("Rules applied")}  ${pc.dim(applied.map((s) => s.label).join(" · "))}`);
     }
+    const language = opts.lang ?? rules.language ?? config.language;
+    planInput = (provider, extra) => ({
+      provider,
+      summaries: summaries!,
+      language,
+      rules,
+      instructions: [opts.instructions, extra].filter(Boolean).join(". ") || undefined,
+    });
 
-    p.note(pc.bold(formatMessage(message)), "Proposed commit");
-    const violations = validateMessage(message, rules);
-    if (violations.length) p.log.warn(`Doesn't fully match project rules: ${violations.join("; ")}`);
-
-    if (opts.dryRun) {
-      p.outro(pc.dim("Dry run: nothing committed."));
-      return;
-    }
-    if (opts.yes) break;
-
-    const action = unwrap(
-      await p.select({
-        message: "What now?",
-        options: [
-          { value: "commit", label: "Commit", hint: "use this message" },
-          { value: "edit", label: "Edit title" },
-          { value: "regen", label: "Regenerate", hint: "optionally with extra instructions" },
-          { value: "cancel", label: "Cancel" },
-        ],
-      }),
+    const single = opts.single || inScope.length === 1;
+    plan = await withRecovery(state, opts, single ? "Writing commit message..." : "Planning commits...", (provider) =>
+      single ? singlePlan(planInput(provider)) : planCommits(planInput(provider)),
     );
-    if (action === "commit") break;
-    if (action === "cancel") {
+  } catch (err) {
+    await restoreIndex();
+    p.cancel(errText(err));
+    process.exit(1);
+  }
+  if (!plan) {
+    await restoreIndex();
+    p.cancel("Cancelled, nothing committed.");
+    return;
+  }
+
+  // --- Review ---------------------------------------------------------------
+  const sums = summaries;
+  let groups: CommitGroup[] = plan.groups;
+  let leftover: CommitGroup[] = [];
+
+  if (opts.dryRun) {
+    plan.groups.forEach((g, i) =>
+      p.note(renderGroup(g, sums), `${i + 1}/${plan!.groups.length}  ${pc.bold(header(g.message))}`),
+    );
+    for (const w of plan.warnings) p.log.warn(w);
+    await restoreIndex();
+    p.outro(pc.dim("Dry run: nothing committed."));
+    return;
+  }
+
+  if (opts.yes) {
+    for (const w of plan.warnings) p.log.warn(w);
+  } else {
+    const outcome = await reviewPlan(plan, {
+      summaries: sums,
+      regenMessage: (paths) =>
+        withRecovery<CommitMessage>(state, opts, "Writing commit message...", (provider) =>
+          messageForFiles(planInput(provider), paths),
+        ).catch((err) => {
+          p.log.error(errText(err));
+          return null;
+        }),
+      replan: (extra) =>
+        withRecovery(state, opts, "Planning commits...", (provider) => planCommits(planInput(provider, extra))).catch((err) => {
+          p.log.error(errText(err));
+          return null;
+        }),
+    });
+    if (outcome.kind === "cancel") {
+      await restoreIndex();
       p.cancel("Cancelled, nothing committed.");
       return;
     }
-    if (action === "edit") {
-      const title = unwrap(
-        await p.text({
-          message: "Commit title",
-          initialValue: header(message),
-          validate: (v) => (v?.trim() ? undefined : "Title can't be empty"),
-        }),
-      );
-      const body = message.body?.trim();
-      await finishCommit(`${title.trim()}${body ? `\n\n${body}` : ""}`, config, opts);
-      return;
-    }
-    const extra = unwrap(await p.text({ message: "Extra instructions (optional)", defaultValue: "" }));
-    instructions = [opts.instructions, extra].filter(Boolean).join(". ") || undefined;
+    groups = outcome.groups;
+    leftover = outcome.skipped;
   }
 
-  await finishCommit(formatMessage(message), config, opts);
-}
+  // --- Commit ---------------------------------------------------------------
+  let spin = p.spinner();
+  const result = await executePlan(
+    groups,
+    { fullTree, origTree, summaries: sums, restoreSkipped: !useAll, leftover },
+    {
+      onStart: (g, i, n) => {
+        spin = p.spinner();
+        spin.start(`Committing ${i + 1}/${n}: ${header(g.message)}`);
+      },
+      onCommitted: (g, hash) => spin.stop(`${pc.yellow(hash)} ${header(g.message)}`),
+      onEmpty: (g) => spin.stop(pc.dim(`Skipped "${header(g.message)}": already identical to HEAD`)),
+      onFailure: async (g, err) => {
+        spin.stop(pc.red(`Commit failed: ${header(g.message)}`));
+        p.log.error(err.message);
+        if (opts.yes || !process.stdin.isTTY) return "abort";
+        return unwrap(
+          await p.select({
+            message: "What now?",
+            options: [
+              { value: "retry", label: "Try this commit again" },
+              { value: "skip", label: "Skip this commit", hint: "its files stay uncommitted" },
+              { value: "abort", label: "Stop here", hint: "keeps commits already made, restores your staging" },
+            ],
+          }),
+        ) as "retry" | "skip" | "abort";
+      },
+    },
+  );
 
-async function finishCommit(message: string, config: Config, opts: CommitOptions): Promise<void> {
-  const spin = p.spinner();
-  spin.start("Committing");
-  try {
-    const hash = await git.commit(message);
-    spin.stop(`Committed ${pc.yellow(hash)} ${pc.dim(message.split("\n")[0]!)}`);
-  } catch (err) {
-    spin.stop(pc.red("Commit failed"));
-    p.log.error(err instanceof Error ? err.message : String(err));
-    p.outro(pc.red("Your changes are still staged. Fix the problem and run aicommit again."));
+  const leftFiles = [...result.skipped, ...leftover].reduce((n, g) => n + g.files.length, 0);
+  if (leftFiles > 0) p.log.info(`${leftFiles} file(s) were left uncommitted.`);
+  if (result.aborted) {
+    p.outro(pc.yellow(`Stopped after ${result.committed.length} commit(s).`));
     process.exit(1);
   }
-  await maybePush(config, opts);
+  if (result.committed.length === 0) {
+    p.outro(pc.yellow("No commits were made."));
+    return;
+  }
+  p.log.success(`Created ${result.committed.length} commit${result.committed.length === 1 ? "" : "s"}`);
+  await maybePush(state.config, opts);
 }
 
 async function maybePush(config: Config, opts: CommitOptions): Promise<void> {

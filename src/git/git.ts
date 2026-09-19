@@ -2,6 +2,8 @@ import { execa } from "execa";
 
 export interface ChangedFile {
   path: string;
+  /** Previous path when the change is a rename/copy. */
+  orig?: string;
   /** Index (staged) status letter, " " if none. */
   index: string;
   /** Worktree (unstaged) status letter, " " if none. */
@@ -41,9 +43,10 @@ export async function status(): Promise<ChangedFile[]> {
     const entry = parts[i]!;
     const index = entry[0]!;
     const worktree = entry[1]!;
-    files.push({ path: entry.slice(3), index: index === "?" ? " " : index, worktree });
+    let orig: string | undefined;
     // Renames/copies are followed by the original path as a separate entry.
-    if (index === "R" || index === "C") i++;
+    if (index === "R" || index === "C") orig = parts[++i];
+    files.push({ path: entry.slice(3), orig, index: index === "?" ? " " : index, worktree });
   }
   return files;
 }
@@ -107,4 +110,98 @@ export async function push(opts: { setUpstream?: { remote: string; branch: strin
     : ["push"];
   const r = await git(args);
   return [r.stdout, r.stderr].filter(Boolean).join("\n").trim();
+}
+
+export const hasConflict = (f: ChangedFile) =>
+  f.index === "U" || f.worktree === "U" || (f.index === "A" && f.worktree === "A") || (f.index === "D" && f.worktree === "D");
+
+// --- Index plumbing: lets us commit exact file sets without touching the working tree ------------
+
+export async function hasHead(): Promise<boolean> {
+  return (await git(["rev-parse", "--verify", "-q", "HEAD"], { reject: false })).exitCode === 0;
+}
+
+/** Snapshot of the current index as a tree object. */
+export async function writeTree(): Promise<string> {
+  return (await git(["write-tree"])).stdout.trim();
+}
+
+/** Restores the index to a snapshot taken with writeTree (working tree untouched). */
+export async function readTree(tree: string): Promise<void> {
+  await git(["read-tree", tree]);
+}
+
+export async function resetIndexToHead(): Promise<void> {
+  await git(["read-tree", (await hasHead()) ? "HEAD" : "--empty"]);
+}
+
+export interface TreeEntry {
+  mode: string;
+  sha: string;
+}
+
+export async function lsTree(tree: string): Promise<Map<string, TreeEntry>> {
+  const r = await git(["ls-tree", "-r", "-z", tree]);
+  const map = new Map<string, TreeEntry>();
+  for (const rec of r.stdout.split("\0").filter(Boolean)) {
+    const tab = rec.indexOf("\t");
+    const [mode = "", , sha = ""] = rec.slice(0, tab).split(" ");
+    map.set(rec.slice(tab + 1), { mode, sha });
+  }
+  return map;
+}
+
+/** Sets (or, with null, removes) index entries. Paths are literal and passed via stdin, so no quoting/length limits. */
+export async function setIndexEntries(entries: { path: string; entry: TreeEntry | null }[]): Promise<void> {
+  if (entries.length === 0) return;
+  const zeros = "0".repeat(entries.find((e) => e.entry)?.entry?.sha.length ?? 40);
+  // Removals first so directory/file replacements don't collide.
+  const ordered = [...entries].sort((a, b) => Number(Boolean(a.entry)) - Number(Boolean(b.entry)));
+  const input =
+    ordered
+      .map((e) => (e.entry ? `${e.entry.mode} ${e.entry.sha}\t${e.path}` : `0 ${zeros}\t${e.path}`))
+      .join("\0") + "\0";
+  try {
+    await execa("git", ["update-index", "-z", "--index-info"], { input });
+  } catch (err) {
+    throw new GitError(((err as { stderr?: string }).stderr || (err as Error).message).trim());
+  }
+}
+
+export async function hasStagedChanges(): Promise<boolean> {
+  return (await git(["diff", "--cached", "--quiet"], { reject: false })).exitCode === 1;
+}
+
+export interface NumstatEntry {
+  path: string;
+  orig?: string;
+  additions: number;
+  deletions: number;
+  binary: boolean;
+}
+
+/** Added/deleted line counts for everything staged, in one cheap call. */
+export async function stagedNumstat(): Promise<NumstatEntry[]> {
+  const r = await git(["diff", "--cached", "-M", "-z", "--numstat"]);
+  const parts = r.stdout.split("\0");
+  const out: NumstatEntry[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    const m = /^(\S+)\t(\S+)\t([\s\S]*)$/.exec(parts[i] ?? "");
+    if (!m) continue;
+    const binary = m[1] === "-";
+    let path = m[3]!;
+    let orig: string | undefined;
+    if (path === "") {
+      orig = parts[++i];
+      path = parts[++i] ?? "";
+    }
+    out.push({ path, orig, additions: binary ? 0 : Number(m[1]), deletions: binary ? 0 : Number(m[2]), binary });
+  }
+  return out;
+}
+
+/** Staged diff for specific files (literal paths, so brackets/globs in names are safe). */
+export async function stagedFileDiff(paths: string[]): Promise<string> {
+  const r = await git(["--literal-pathspecs", "diff", "--cached", "-M", "--no-color", "--unified=2", "--", ...paths]);
+  return r.stdout;
 }
