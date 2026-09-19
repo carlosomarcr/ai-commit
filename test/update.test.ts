@@ -27,6 +27,7 @@ describe("detectInstall", () => {
   });
   it("only offers an update command for real installs", () => {
     expect(updateCommand("pnpm", "x")).toEqual(["pnpm", ["add", "-g", "x@latest"]]);
+    expect(updateCommand("pnpm", "x", "1.2.3")).toEqual(["pnpm", ["add", "-g", "x@1.2.3"]]);
     expect(updateCommand("dev", "x")).toBeNull();
     expect(updateCommand("npx", "x")).toBeNull();
   });

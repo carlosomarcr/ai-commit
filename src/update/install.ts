@@ -27,12 +27,17 @@ export function currentInstall(): InstallMethod {
   }
 }
 
-export function updateCommand(method: InstallMethod, pkg: string): [string, string[]] | null {
+/**
+ * `version` should be the exact version just read from the registry: package managers resolve
+ * `@latest` from cached metadata, so right after a publish they can reinstall the old version.
+ */
+export function updateCommand(method: InstallMethod, pkg: string, version = "latest"): [string, string[]] | null {
+  const spec = `${pkg}@${version}`;
   switch (method) {
-    case "pnpm": return ["pnpm", ["add", "-g", `${pkg}@latest`]];
-    case "npm": return ["npm", ["install", "-g", `${pkg}@latest`]];
-    case "yarn": return ["yarn", ["global", "add", `${pkg}@latest`]];
-    case "bun": return ["bun", ["add", "-g", `${pkg}@latest`]];
+    case "pnpm": return ["pnpm", ["add", "-g", spec]];
+    case "npm": return ["npm", ["install", "-g", spec]];
+    case "yarn": return ["yarn", ["global", "add", spec]];
+    case "bun": return ["bun", ["add", "-g", spec]];
     default: return null;
   }
 }

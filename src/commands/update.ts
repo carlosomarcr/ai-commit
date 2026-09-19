@@ -28,7 +28,7 @@ export async function runUpdate(opts: { check?: boolean; yes?: boolean }): Promi
     return;
   }
 
-  const cmd = updateCommand(method, name);
+  const cmd = updateCommand(method, name, latest);
   if (!cmd) {
     p.outro(
       method === "dev"
