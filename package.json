@@ -4,7 +4,7 @@
   "description": "AI-powered git commits with smart grouping, project rules and multi-provider support",
   "type": "module",
   "bin": {
-    "aicommit": "./dist/cli.js"
+    "aicommit": "dist/cli.js"
   },
   "files": [
     "dist",
