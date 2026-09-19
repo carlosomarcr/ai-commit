@@ -23,6 +23,10 @@ export interface PlanInput {
 
 const DIFF_BUDGET = 20_000;
 const MAX_HINT_FILES = 60;
+/** Above this many files the full list no longer fits a prompt comfortably: plan by heuristic clusters instead. */
+export const MAX_LLM_FILES = 250;
+/** Each cluster costs one model call, so cap how many we create. */
+export const MAX_CLUSTERS = 12;
 
 const PlanSchema = z.object({
   commits: z
@@ -117,6 +121,16 @@ export function normalizePlan(raw: RawPlan, summaries: FileSummary[]): { groups:
   return { groups, problems };
 }
 
+/** In a monorepo, nudges the model to scope commits by package unless the project defines its own scopes. */
+export function monorepoHint(summaries: FileSummary[], rules: ProjectRules): string {
+  if (rules.scopes || rules.style !== "conventional") return "";
+  const packages = [
+    ...new Set(summaries.map((s) => /^(?:packages|apps|libs|services|modules|crates)\/([^/]+)\//.exec(s.path)?.[1]).filter(Boolean)),
+  ];
+  if (packages.length < 2) return "";
+  return `Monorepo: when a commit touches a single package, use its folder name as the scope (packages here: ${packages.join(", ")}). Never mix packages in one commit unless the change is genuinely cross-cutting.`;
+}
+
 function planPrompt(input: PlanInput): { system: string; user: string } {
   const { summaries, rules } = input;
   const clusters = heuristicClusters(summaries);
@@ -137,6 +151,7 @@ function planPrompt(input: PlanInput): { system: string; user: string } {
     "- Order commits so each builds on the previous: refactors and foundations first, features after.",
     "- rationale: max 15 words on why these files belong together.",
     ...styleParts(rules, input.language, input.instructions),
+    monorepoHint(summaries, rules),
     hints,
   ]
     .filter(Boolean)
@@ -166,20 +181,34 @@ export async function singlePlan(input: PlanInput): Promise<CommitPlan> {
 }
 
 /** Heuristic clusters + one message each; used when the model can't produce a usable plan. */
-async function fallbackPlan(input: PlanInput): Promise<CommitPlan> {
+/** Keeps the biggest clusters and folds the small tail into one, so a huge change set stays reviewable. */
+export function capClusters(clusters: string[][], max = MAX_CLUSTERS): string[][] {
+  if (clusters.length <= max) return clusters;
+  const sorted = [...clusters].sort((a, b) => b.length - a.length);
+  return [...sorted.slice(0, max - 1), sorted.slice(max - 1).flat()];
+}
+
+/** Heuristic clusters + one message each; used when the model can't produce a usable plan or the change is huge. */
+async function clusterPlan(input: PlanInput, warning: string): Promise<CommitPlan> {
   const groups: CommitGroup[] = [];
-  for (const files of heuristicClusters(input.summaries)) {
+  for (const files of capClusters(heuristicClusters(input.summaries))) {
     groups.push({ id: `g${groups.length + 1}`, message: await messageForFiles(input, files), files });
   }
-  return {
-    groups,
-    warnings: ["The model didn't return a usable plan, so files were grouped by heuristics (folder, tests, lockfiles)."],
-  };
+  return { groups, warnings: [warning] };
 }
+
+const fallbackPlan = (input: PlanInput) =>
+  clusterPlan(input, "The model didn't return a usable plan, so files were grouped by heuristics (folder, tests, lockfiles).");
 
 /** Asks the model to split the changes into commits, validating and repairing its answer. */
 export async function planCommits(input: PlanInput): Promise<CommitPlan> {
   if (input.summaries.length <= 1) return singlePlan(input);
+  if (input.summaries.length > MAX_LLM_FILES) {
+    return clusterPlan(
+      input,
+      `${input.summaries.length} files is too many to plan in one go, so they were grouped by folder, tests and lockfiles. Review and merge/split as needed.`,
+    );
+  }
 
   const { system, user } = planPrompt(input);
   let feedback = "";

@@ -1,4 +1,4 @@
-import { execa } from "execa";
+import { execa, execaSync } from "execa";
 
 export interface ChangedFile {
   path: string;
@@ -226,4 +226,38 @@ export async function globalIdentity(): Promise<{ name: string | null; email: st
 export async function gitVersion(): Promise<string | null> {
   const r = await git(["--version"], { reject: false }).catch(() => null);
   return r && r.exitCode === 0 ? r.stdout.trim().replace(/^git version /, "") : null;
+}
+
+/** Zero-context staged diff of added/modified files: cheap to scan, contains only the new lines. */
+export async function stagedAddedLinesDiff(): Promise<string> {
+  const r = await git(["-c", "core.quotepath=false", "diff", "--cached", "-M", "-U0", "--no-color", "--diff-filter=ACMR"]);
+  return r.stdout;
+}
+
+/** Name of a merge/rebase/cherry-pick/revert in progress, or null. Committing groups mid-operation would corrupt it. */
+export async function operationInProgress(): Promise<string | null> {
+  const dir = (await git(["rev-parse", "--absolute-git-dir"])).stdout.trim();
+  const { access } = await import("node:fs/promises");
+  const { join } = await import("node:path");
+  const markers: [string, string][] = [
+    ["MERGE_HEAD", "merge"],
+    ["rebase-merge", "rebase"],
+    ["rebase-apply", "rebase"],
+    ["CHERRY_PICK_HEAD", "cherry-pick"],
+    ["REVERT_HEAD", "revert"],
+  ];
+  for (const [file, name] of markers) {
+    try {
+      await access(join(dir, file));
+      return name;
+    } catch {
+      // not present
+    }
+  }
+  return null;
+}
+
+/** Synchronous index restore, usable from a SIGINT handler. */
+export function readTreeSync(tree: string): void {
+  execaSync("git", ["read-tree", tree]);
 }

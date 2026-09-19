@@ -1,3 +1,4 @@
+import { LIST_TIMEOUT_MS, request } from "./http.js";
 import { ProviderError, type GenerateOptions, type Provider } from "./types.js";
 
 export interface OpenAICompatibleConfig {
@@ -26,14 +27,14 @@ export class OpenAICompatibleProvider implements Provider {
   }
 
   async listModels(): Promise<string[]> {
-    const res = await fetch(this.url("/models"), { headers: this.headers() });
+    const res = await request(this.name, this.url("/models"), { headers: this.headers(), timeoutMs: LIST_TIMEOUT_MS });
     await assertOk(res, this.name);
     const json = (await res.json()) as { data?: { id: string }[] };
     return (json.data ?? []).map((m) => m.id).sort();
   }
 
   async generate({ system, user, signal }: GenerateOptions): Promise<string> {
-    const res = await fetch(this.url("/chat/completions"), {
+    const res = await request(this.name, this.url("/chat/completions"), {
       method: "POST",
       headers: this.headers(),
       signal,

@@ -20,6 +20,8 @@ export interface ExecuteHooks {
   onStart?(group: CommitGroup, index: number, total: number): void;
   onCommitted?(group: CommitGroup, hash: string): void;
   onEmpty?(group: CommitGroup): void;
+  /** Checked before each commit; returning true stops the run cleanly (e.g. after Ctrl+C). */
+  shouldStop?(): boolean;
   /** Called when git refuses a commit (usually a hook). Decides what to do next. */
   onFailure(group: CommitGroup, error: git.GitError): Promise<FailureDecision>;
 }
@@ -54,7 +56,17 @@ export async function executePlan(groups: CommitGroup[], ctx: ExecuteContext, ho
   const tree = await git.lsTree(ctx.fullTree);
   const result: ExecuteResult = { committed: [], skipped: [], aborted: false };
 
+  // Keep what was already committed; put the user's original staging back for what is left.
+  const abort = async (from: number): Promise<ExecuteResult> => {
+    const rest = groups.slice(from).flatMap((g) => pathsFor(g, ctx.summaries));
+    await git.resetIndexToHead();
+    await stageFromTree(rest, await git.lsTree(ctx.origTree));
+    result.aborted = true;
+    return result;
+  };
+
   for (const [i, group] of groups.entries()) {
+    if (hooks.shouldStop?.()) return abort(i);
     hooks.onStart?.(group, i, groups.length);
     const paths = pathsFor(group, ctx.summaries);
 
@@ -78,12 +90,7 @@ export async function executePlan(groups: CommitGroup[], ctx: ExecuteContext, ho
           result.skipped.push(group);
           break;
         }
-        // Keep what was already committed; put the user's original staging back for what is left.
-        const rest = groups.slice(i).flatMap((g) => pathsFor(g, ctx.summaries));
-        await git.resetIndexToHead();
-        await stageFromTree(rest, await git.lsTree(ctx.origTree));
-        result.aborted = true;
-        return result;
+        return abort(i);
       }
     }
   }

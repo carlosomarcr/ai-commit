@@ -1,3 +1,4 @@
+import { LIST_TIMEOUT_MS, request } from "./http.js";
 import { assertOk } from "./openai-compatible.js";
 import { ProviderError, type GenerateOptions, type Provider } from "./types.js";
 
@@ -15,7 +16,7 @@ export class GeminiProvider implements Provider {
   }
 
   async listModels(): Promise<string[]> {
-    const res = await fetch(`${this.baseUrl}/models?pageSize=200`, { headers: this.headers() });
+    const res = await request(this.name, `${this.baseUrl}/models?pageSize=200`, { headers: this.headers(), timeoutMs: LIST_TIMEOUT_MS });
     await assertOk(res, this.name);
     const json = (await res.json()) as {
       models?: { name: string; supportedGenerationMethods?: string[] }[];
@@ -26,7 +27,7 @@ export class GeminiProvider implements Provider {
   }
 
   async generate({ system, user, signal }: GenerateOptions): Promise<string> {
-    const res = await fetch(`${this.baseUrl}/models/${encodeURIComponent(this.model)}:generateContent`, {
+    const res = await request(this.name, `${this.baseUrl}/models/${encodeURIComponent(this.model)}:generateContent`, {
       method: "POST",
       headers: this.headers(),
       signal,

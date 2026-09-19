@@ -1,3 +1,4 @@
+import { LIST_TIMEOUT_MS, request } from "./http.js";
 import { assertOk } from "./openai-compatible.js";
 import { ProviderError, type GenerateOptions, type Provider } from "./types.js";
 
@@ -20,14 +21,14 @@ export class OllamaProvider implements Provider {
   }
 
   async listModels(): Promise<string[]> {
-    const res = await fetch(`${this.baseUrl}/api/tags`, { headers: this.headers() });
+    const res = await request(this.name, `${this.baseUrl}/api/tags`, { headers: this.headers(), timeoutMs: LIST_TIMEOUT_MS });
     await assertOk(res, this.name);
     const json = (await res.json()) as { models?: { name: string }[] };
     return (json.models ?? []).map((m) => m.name);
   }
 
   async generate({ system, user, signal }: GenerateOptions): Promise<string> {
-    const res = await fetch(`${this.baseUrl}/api/chat`, {
+    const res = await request(this.name, `${this.baseUrl}/api/chat`, {
       method: "POST",
       headers: this.headers(),
       signal,

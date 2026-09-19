@@ -1,3 +1,4 @@
+import { LIST_TIMEOUT_MS, request } from "./http.js";
 import { assertOk } from "./openai-compatible.js";
 import { ProviderError, type GenerateOptions, type Provider } from "./types.js";
 
@@ -19,14 +20,14 @@ export class AnthropicProvider implements Provider {
   }
 
   async listModels(): Promise<string[]> {
-    const res = await fetch(`${this.baseUrl}/models?limit=100`, { headers: this.headers() });
+    const res = await request(this.name, `${this.baseUrl}/models?limit=100`, { headers: this.headers(), timeoutMs: LIST_TIMEOUT_MS });
     await assertOk(res, this.name);
     const json = (await res.json()) as { data?: { id: string }[] };
     return (json.data ?? []).map((m) => m.id);
   }
 
   async generate({ system, user, signal }: GenerateOptions): Promise<string> {
-    const res = await fetch(`${this.baseUrl}/messages`, {
+    const res = await request(this.name, `${this.baseUrl}/messages`, {
       method: "POST",
       headers: this.headers(),
       signal,

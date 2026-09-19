@@ -3,21 +3,24 @@ import { loadConfig, type Config } from "../config/store.js";
 import { executePlan } from "../grouping/execute.js";
 import { messageForFiles, planCommits, singlePlan, type PlanInput } from "../grouping/planner.js";
 import { collectSummaries } from "../grouping/summarize.js";
-import type { CommitGroup, CommitPlan } from "../grouping/types.js";
+import type { CommitGroup, CommitPlan, FileSummary } from "../grouping/types.js";
 import * as git from "../git/git.js";
 import { createProvider } from "../providers/registry.js";
 import type { Provider } from "../providers/types.js";
 import { loadRules } from "../rules/index.js";
 import { renderGroup, reviewPlan } from "../ui/plan-review.js";
 import { banner, p, pc, statusColor, unwrap } from "../ui/theme.js";
+import { loadIgnore } from "../security/ignore.js";
 import { runInit } from "./init.js";
 import { offerRecovery } from "./recover.js";
+import { decideRisks, findRisks, guardOperation, installInterruptGuard } from "./safety.js";
 
 export interface CommitOptions {
   all?: boolean;
   yes?: boolean;
   dryRun?: boolean;
   single?: boolean;
+  allowSecrets?: boolean;
   push?: boolean;
   noPush?: boolean;
   provider?: string;
@@ -92,6 +95,8 @@ export async function runCommit(opts: CommitOptions): Promise<void> {
     process.exit(1);
   }
 
+  await guardOperation();
+
   // Respect deliberate staging; otherwise take everything. The original index is snapshotted so
   // any cancel/failure before committing puts it back exactly as it was.
   const origTree = await git.writeTree();
@@ -104,6 +109,8 @@ export async function runCommit(opts: CommitOptions): Promise<void> {
   }
   const fullTree = await git.writeTree();
   const restoreIndex = () => git.readTree(origTree).catch(() => undefined);
+  // From here until commits start, any exit path (cancel, error, Ctrl+C) puts the index back.
+  const guard = installInterruptGuard(() => git.readTreeSync(origTree));
 
   const inScope = (await git.status()).filter(git.isStaged);
   if (inScope.length === 0) {
@@ -115,14 +122,39 @@ export async function runCommit(opts: CommitOptions): Promise<void> {
 
   let plan: CommitPlan | null;
   let planInput: (provider: Provider, extra?: string) => PlanInput;
-  let summaries;
+  let summaries: FileSummary[];
+  let allSummaries: FileSummary[];
+  let leftover: CommitGroup[] = [];
   try {
     const spin = p.spinner();
     spin.start(`Analyzing ${inScope.length} file(s)`);
-    summaries = await collectSummaries(inScope);
+    const root = await git.root();
+    allSummaries = await collectSummaries(inScope, { ignore: await loadIgnore(root) });
     spin.stop(`Analyzed ${inScope.length} file(s)`);
 
-    const [subjects, root] = await Promise.all([git.recentSubjects(), git.root()]);
+    // Secrets: never sent to the AI (redacted/withheld), and the user decides whether they get committed.
+    const risks = await findRisks(allSummaries);
+    summaries = allSummaries;
+    if (risks) {
+      const decision = await decideRisks(risks, { allow: opts.allowSecrets, interactive: !opts.yes && Boolean(process.stdin.isTTY) });
+      if (decision.kind === "cancel") {
+        await restoreIndex();
+        p.cancel("Cancelled, nothing committed.");
+        return;
+      }
+      if (decision.kind === "exclude") {
+        const out = new Set(decision.paths);
+        summaries = allSummaries.filter((x) => !out.has(x.path));
+        leftover = [{ id: "excluded", files: decision.paths, message: { type: "chore", title: "excluded" } }];
+        if (summaries.length === 0) {
+          await restoreIndex();
+          p.outro(pc.yellow("Nothing left to commit after leaving out the flagged files."));
+          return;
+        }
+      }
+    }
+
+    const subjects = await git.recentSubjects();
     const rules = await loadRules({ cwd: process.cwd(), root, subjects });
     const applied = rules.sources.filter((s) => s.kind !== "history");
     if (applied.length) {
@@ -131,13 +163,13 @@ export async function runCommit(opts: CommitOptions): Promise<void> {
     const language = opts.lang ?? rules.language ?? config.language;
     planInput = (provider, extra) => ({
       provider,
-      summaries: summaries!,
+      summaries,
       language,
       rules,
       instructions: [opts.instructions, extra].filter(Boolean).join(". ") || undefined,
     });
 
-    const single = opts.single || inScope.length === 1;
+    const single = opts.single || summaries.length === 1;
     plan = await withRecovery(state, opts, single ? "Writing commit message..." : "Planning commits...", (provider) =>
       single ? singlePlan(planInput(provider)) : planCommits(planInput(provider)),
     );
@@ -155,7 +187,6 @@ export async function runCommit(opts: CommitOptions): Promise<void> {
   // --- Review ---------------------------------------------------------------
   const sums = summaries;
   let groups: CommitGroup[] = plan.groups;
-  let leftover: CommitGroup[] = [];
 
   if (opts.dryRun) {
     plan.groups.forEach((g, i) =>
@@ -191,15 +222,17 @@ export async function runCommit(opts: CommitOptions): Promise<void> {
       return;
     }
     groups = outcome.groups;
-    leftover = outcome.skipped;
+    leftover = [...leftover, ...outcome.skipped];
   }
 
   // --- Commit ---------------------------------------------------------------
+  guard.startExecution();
   let spin = p.spinner();
   const result = await executePlan(
     groups,
-    { fullTree, origTree, summaries: sums, restoreSkipped: !useAll, leftover },
+    { fullTree, origTree, summaries: allSummaries, restoreSkipped: !useAll, leftover },
     {
+      shouldStop: guard.shouldStop,
       onStart: (g, i, n) => {
         spin = p.spinner();
         spin.start(`Committing ${i + 1}/${n}: ${header(g.message)}`);
@@ -224,6 +257,7 @@ export async function runCommit(opts: CommitOptions): Promise<void> {
     },
   );
 
+  guard.dispose();
   const leftFiles = [...result.skipped, ...leftover].reduce((n, g) => n + g.files.length, 0);
   if (leftFiles > 0) p.log.info(`${leftFiles} file(s) were left uncommitted.`);
   if (result.aborted) {

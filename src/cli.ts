@@ -15,6 +15,7 @@ cli
   .option("-a, --all", "Stage all changes before committing")
   .option("-y, --yes", "Skip confirmation prompts")
   .option("--single", "Force a single commit instead of grouping")
+  .option("--allow-secrets", "Commit files flagged as possible secrets instead of leaving them out")
   .option("--dry-run", "Show the proposed message without committing")
   .option("--push", "Push after committing without asking")
   .option("--no-push", "Never push after committing")
@@ -28,6 +29,7 @@ cli
       yes: options.yes,
       dryRun: options.dryRun,
       single: options.single,
+      allowSecrets: options.allowSecrets,
       push: options.push === true,
       noPush: options.push === false,
       provider: options.provider,

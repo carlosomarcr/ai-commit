@@ -12,6 +12,8 @@ export interface FileSummary {
   deletions: number;
   binary: boolean;
   kind: FileKind;
+  /** Why the diff content is never sent to the AI (it is still committed). */
+  withheld?: "sensitive" | "ignored";
   /** Diff excerpt; absent for lockfiles, generated files, binaries and files past the budget. */
   diff?: string;
 }
