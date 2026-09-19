@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+- Fix: `gitowl update` now installs the exact version it found in the registry, so pnpm no longer reinstalls the old version from its metadata cache right after a release.
+
 ## 0.1.1
 
 - `owl` is now available as a shorter alias of `gitowl` (both commands are installed).
