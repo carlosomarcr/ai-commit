@@ -1,3 +1,5 @@
+import { execa } from "execa";
+import { lstat, readFile, realpath, stat } from "node:fs/promises";
 import { generateMessage, formatMessage } from "../commit/generate.js";
 import { getSecret, secretBackend } from "../config/secrets.js";
 import { configPath, loadConfig, readRawConfig, type Config } from "../config/store.js";
@@ -56,6 +58,39 @@ async function safe<T>(fn: () => Promise<T>): Promise<T | null> {
   }
 }
 
+/** Every executable called `cmd` on PATH, in the order the shell would pick them. */
+async function findOnPath(cmd: string): Promise<string[]> {
+  const [bin, args] = process.platform === "win32" ? ["where", [cmd]] : ["which", ["-a", cmd]];
+  const r = await execa(bin!, args as string[], { reject: false, timeout: 3000 }).catch(() => null);
+  return r && r.exitCode === 0 ? r.stdout.split(/\r?\n/).map((s) => s.trim()).filter(Boolean) : [];
+}
+
+/** True when the file (or the file a symlink points to, or a tiny npm shim) refers to gitowl. */
+export async function isOurs(path: string): Promise<boolean> {
+  try {
+    // A symlink (Linux/macOS npm bin) is ours when it points into the gitowl package; only then does
+    // the destination path say anything. A plain file (Windows shim) is ours when its text mentions gitowl.
+    if ((await lstat(path)).isSymbolicLink()) return /gitowl/i.test(await realpath(path));
+    return (await stat(path)).size < 4096 && /gitowl/i.test(await readFile(path, "utf8"));
+  } catch {
+    return false;
+  }
+}
+
+/** Reports whether the short `owl` command runs gitowl, is missing, or belongs to another program. */
+export function owlShortcutCheck(firstOwl: string | undefined, ours: boolean): Check {
+  if (!firstOwl) {
+    return { status: "info", label: "owl shortcut", detail: "not found", fix: "Reinstall to get the short `owl` command (binary users can rename the file to owl)." };
+  }
+  if (ours) return { status: "ok", label: "owl shortcut", detail: "owl runs gitowl" };
+  return {
+    status: "warn",
+    label: "owl shortcut",
+    detail: `another program named owl comes first: ${firstOwl}`,
+    fix: "Use `gitowl` instead, or move this install earlier in your PATH.",
+  };
+}
+
 async function environmentChecks(): Promise<Check[]> {
   const checks: Check[] = [];
   checks.push(
@@ -88,6 +123,12 @@ async function environmentChecks(): Promise<Check[]> {
       ? { status: "ok", label: "git owl shortcut", detail: "installed" }
       : { status: "info", label: "git owl shortcut", detail: "not set", fix: "Optional: run `gitowl init` to add it." },
   );
+  if (currentInstall() === "dev") {
+    checks.push({ status: "info", label: "owl shortcut", detail: "running from a source checkout, skipped" });
+  } else {
+    const [first] = await findOnPath("owl");
+    checks.push(owlShortcutCheck(first, first ? await isOurs(first) : false));
+  }
   return checks;
 }
 

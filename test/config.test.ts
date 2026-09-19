@@ -167,3 +167,25 @@ describe("migration from the old 'aicommit' name", () => {
     await expect(readFile(join(dir, "aicommit", "config.json"), "utf8")).resolves.toContain("openai"); // untouched
   });
 });
+
+describe("owl shortcut check", () => {
+  it("reports ok, missing, or shadowed", async () => {
+    const { owlShortcutCheck } = await import("../src/commands/doctor.js");
+    expect(owlShortcutCheck("/usr/bin/owl", true).status).toBe("ok");
+    expect(owlShortcutCheck(undefined, false)).toMatchObject({ status: "info", detail: "not found" });
+    const shadowed = owlShortcutCheck("/opt/other/owl", false);
+    expect(shadowed.status).toBe("warn");
+    expect(shadowed.detail).toContain("/opt/other/owl");
+  });
+
+  it("recognises our npm shim, and rejects another program's", async () => {
+    const { isOurs } = await import("../src/commands/doctor.js");
+    const ours = join(dir, "owl-ours");
+    const other = join(dir, "owl-other");
+    await writeFile(ours, '#!/bin/sh\nexec node "$basedir/node_modules/@carlosomarcr/gitowl/dist/cli.js" "$@"\n');
+    await writeFile(other, "#!/bin/sh\nexec node /opt/owl-cli/bin/owl.js \"$@\"\n");
+    expect(await isOurs(ours)).toBe(true);
+    expect(await isOurs(other)).toBe(false);
+    expect(await isOurs(join(dir, "does-not-exist"))).toBe(false);
+  });
+});

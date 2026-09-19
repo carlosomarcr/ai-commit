@@ -1,10 +1,11 @@
 {
   "name": "@carlosomarcr/gitowl",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "AI-powered git commits with smart grouping, project rules and multi-provider support",
   "type": "module",
   "bin": {
-    "gitowl": "dist/cli.js"
+    "gitowl": "dist/cli.js",
+    "owl": "dist/cli.js"
   },
   "files": [
     "dist",

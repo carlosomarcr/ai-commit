@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+- `owl` is now available as a shorter alias of `gitowl` (both commands are installed).
+- `gitowl doctor` warns when a different program named `owl` comes first on your PATH.
+
 ## 0.1.0 (2026-09-19)
 
 First public release.

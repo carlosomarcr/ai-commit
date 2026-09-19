@@ -29,7 +29,7 @@ AI-written git commits that **group your changes into logical commits**, follow 
 
 ```bash
 # any platform, needs Node 20.19+
-npm install -g @carlosomarcr/gitowl        # or: pnpm add -g @carlosomarcr/gitowl   (the command is just `gitowl`)
+npm install -g @carlosomarcr/gitowl        # or: pnpm add -g @carlosomarcr/gitowl   (the command is `gitowl`, or the shorter `owl`)
 
 # one-liners that also run the setup wizard
 curl -fsSL https://raw.githubusercontent.com/carlosomarcr/gitowl/main/install.sh | sh          # macOS / Linux
@@ -128,7 +128,9 @@ gitowl update [--check]     update to the latest version
 -i, --instructions "…" extra guidance for the model
 ```
 
-A `git owl` shortcut can be added by the wizard.
+`owl` is a shorter alias for `gitowl`: both do exactly the same. If another program named `owl` is on your PATH first (for example the `owl-cli` npm package), keep using `gitowl`; `gitowl doctor` tells you when that happens. A `git owl` shortcut can also be added by the wizard.
+
+Standalone binaries are named `gitowl`; rename the file to `owl` if you prefer the short name.
 
 ## Updates
 
