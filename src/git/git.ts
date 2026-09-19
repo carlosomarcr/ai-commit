@@ -205,3 +205,25 @@ export async function stagedFileDiff(paths: string[]): Promise<string> {
   const r = await git(["--literal-pathspecs", "diff", "--cached", "-M", "--no-color", "--unified=2", "--", ...paths]);
   return r.stdout;
 }
+
+export async function getGlobalAlias(name: string): Promise<string | null> {
+  const r = await git(["config", "--global", "--get", `alias.${name}`], { reject: false });
+  return r.exitCode === 0 ? r.stdout.trim() : null;
+}
+
+export async function setGlobalAlias(name: string, command: string): Promise<void> {
+  await git(["config", "--global", `alias.${name}`, command]);
+}
+
+export async function globalIdentity(): Promise<{ name: string | null; email: string | null }> {
+  const get = async (key: string) => {
+    const r = await git(["config", "--get", key], { reject: false });
+    return r.exitCode === 0 && r.stdout.trim() ? r.stdout.trim() : null;
+  };
+  return { name: await get("user.name"), email: await get("user.email") };
+}
+
+export async function gitVersion(): Promise<string | null> {
+  const r = await git(["--version"], { reject: false }).catch(() => null);
+  return r && r.exitCode === 0 ? r.stdout.trim().replace(/^git version /, "") : null;
+}
