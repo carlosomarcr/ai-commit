@@ -130,3 +130,15 @@ describe("applySetting", () => {
     expect(JSON.stringify(displayConfig(cfg({ apiKey: "sk-secret" })))).not.toContain("sk-secret");
   });
 });
+
+describe("nodeSupported", () => {
+  it("accepts 20.19+ and anything newer, rejects older 20.x and 18", async () => {
+    const { nodeSupported } = await import("../src/commands/doctor.js");
+    expect(nodeSupported("20.19.0")).toBe(true);
+    expect(nodeSupported("20.20.1")).toBe(true);
+    expect(nodeSupported("22.0.0")).toBe(true);
+    expect(nodeSupported("24.21.0")).toBe(true);
+    expect(nodeSupported("20.18.9")).toBe(false);
+    expect(nodeSupported("18.19.0")).toBe(false);
+  });
+});

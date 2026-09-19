@@ -13,7 +13,7 @@
     "LICENSE"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19.0"
   },
   "packageManager": "pnpm@12.4.2",
   "scripts": {
@@ -28,7 +28,7 @@
     "@clack/prompts": "^1.8.1",
     "@napi-rs/keyring": "^2.1.0",
     "cac": "^7.0.0",
-    "execa": "^10.0.1",
+    "execa": "^9.6.1",
     "picocolors": "^1.1.1",
     "zod": "^4.6.5"
   },
@@ -37,7 +37,7 @@
     "tsup": "^8.5.1",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.1"
+    "vitest": "^3.2.7"
   },
   "publishConfig": {
     "access": "public"

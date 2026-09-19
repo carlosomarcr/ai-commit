@@ -28,7 +28,7 @@ AI-written git commits that **group your changes into logical commits**, follow 
 ## Install
 
 ```bash
-# any platform, needs Node 20+
+# any platform, needs Node 20.19+
 npm install -g aicommit-cli        # or: pnpm add -g aicommit-cli
 
 # one-liners that also run the setup wizard

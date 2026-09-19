@@ -31,6 +31,12 @@ export function connectionFix(v: Verification, config: Config): string {
   return "Check your internet connection and the provider URL in `aicommit config`.";
 }
 
+/** Minimum supported Node is 20.19 (what our dependencies require). */
+export function nodeSupported(version: string): boolean {
+  const [major = 0, minor = 0] = version.split(".").map(Number);
+  return major > 20 || (major === 20 && minor >= 19);
+}
+
 export type KeySource = "env" | "keyring" | "file" | "none";
 
 /** Where the API key comes from, in the same order the app resolves it. */
@@ -52,11 +58,10 @@ async function safe<T>(fn: () => Promise<T>): Promise<T | null> {
 
 async function environmentChecks(): Promise<Check[]> {
   const checks: Check[] = [];
-  const major = Number(process.versions.node.split(".")[0]);
   checks.push(
-    major >= 20
+    nodeSupported(process.versions.node)
       ? { status: "ok", label: "Node.js", detail: process.versions.node }
-      : { status: "fail", label: "Node.js", detail: process.versions.node, fix: "aicommit needs Node 20 or newer." },
+      : { status: "fail", label: "Node.js", detail: process.versions.node, fix: "aicommit needs Node 20.19 or newer." },
   );
 
   const version = await git.gitVersion();

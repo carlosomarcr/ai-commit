@@ -14,10 +14,11 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
   Fail "git is not installed. Install it first: winget install Git.Git"
 }
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-  Fail "Node.js 20+ is required but was not found. Install it: winget install OpenJS.NodeJS.LTS (then open a new terminal and rerun)."
+  Fail "Node.js 20.19+ is required but was not found. Install it: winget install OpenJS.NodeJS.LTS (then open a new terminal and rerun)."
 }
-$major = [int](node -p "process.versions.node.split('.')[0]")
-if ($major -lt 20) { Fail "Node.js 20+ is required (found $(node -v))." }
+# Node 20.19 is the floor (dependencies need it); anything from 22 up is fine.
+$ok = node -e "const [a,b]=process.versions.node.split('.').map(Number); process.exit(a>20||(a===20&&b>=19)?0:1)"
+if ($LASTEXITCODE -ne 0) { Fail "Node.js 20.19+ is required (found $(node -v))." }
 
 if (Get-Command pnpm -ErrorAction SilentlyContinue) {
   Say "Using pnpm"
