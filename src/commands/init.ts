@@ -1,12 +1,50 @@
-import { saveConfig, configPath, CONFIG_VERSION, type Config } from "../config/store.js";
+import * as git from "../git/git.js";
+import { CONFIG_VERSION, configPath, loadConfig, saveConfig, type Config } from "../config/store.js";
+import { getSecret } from "../config/secrets.js";
 import { detectOllama, OLLAMA_CLOUD_URL, OLLAMA_URL } from "../providers/ollama.js";
-import { createProvider, PRESETS } from "../providers/registry.js";
+import { findPreset, PRESETS, type ProviderPreset } from "../providers/registry.js";
+import { isAuthError, verifyConnection } from "../providers/verify.js";
 import { banner, p, pc, unwrap } from "../ui/theme.js";
+import { chooseModel } from "./recover.js";
+
+export const LANGUAGES = [
+  { value: "en", label: "English" },
+  { value: "es", label: "Español" },
+  { value: "pt", label: "Português" },
+  { value: "fr", label: "Français" },
+  { value: "de", label: "Deutsch" },
+];
+
+/**
+ * Asks for an API key, reusing one from the environment or the keyring when present.
+ * Returns undefined when the key should come from the environment (nothing to store).
+ */
+export async function promptApiKey(preset: ProviderPreset, opts: { optional?: boolean } = {}): Promise<string | undefined> {
+  if (preset.envKey && process.env[preset.envKey]) {
+    p.log.info(`Using ${pc.cyan(preset.envKey)} from your environment.`);
+    return undefined;
+  }
+  const saved = await getSecret(preset.id);
+  if (saved) {
+    const reuse = unwrap(await p.confirm({ message: `Use the ${preset.label} key saved in your keyring?`, initialValue: true }));
+    if (reuse) return saved;
+  }
+  const key = unwrap(
+    await p.password({
+      message: opts.optional ? `${preset.label} API key (leave empty if none)` : `${preset.label} API key`,
+      validate: opts.optional ? undefined : (v) => (v?.trim() ? undefined : "Required"),
+    }),
+  );
+  return key.trim() || undefined;
+}
 
 export async function runInit(): Promise<Config> {
   p.intro(pc.bgMagenta(pc.black(" setup ")));
-
+  const existing = await loadConfig();
   const ollamaModels = await detectOllama();
+
+  // 1. Provider ---------------------------------------------------------------
+  p.log.step(pc.bold("1/4  Provider"));
   const provider = unwrap(
     await p.select({
       message: "Which AI provider do you want to use?",
@@ -15,25 +53,28 @@ export async function runInit(): Promise<Config> {
         label: preset.label,
         hint:
           preset.id === "ollama" && ollamaModels
-            ? `detected, ${ollamaModels.length} model(s)`
+            ? `detected locally, ${ollamaModels.length} model(s)`
             : preset.envKey && process.env[preset.envKey]
               ? `${preset.envKey} found`
-              : undefined,
+              : preset.id === existing?.provider
+                ? "current"
+                : undefined,
       })),
-      initialValue: ollamaModels ? "ollama" : "deepseek",
+      initialValue: existing?.provider ?? (ollamaModels ? "ollama" : "deepseek"),
     }),
   );
-  const preset = PRESETS.find((x) => x.id === provider)!;
+  const preset = findPreset(provider)!;
+  const config: Config = {
+    configVersion: CONFIG_VERSION,
+    provider,
+    language: existing?.language ?? "en",
+    push: existing?.push ?? "ask",
+    updateCheck: existing?.updateCheck ?? true,
+  };
 
-  const config: Config = { configVersion: CONFIG_VERSION, provider, language: "en", push: "ask", updateCheck: true };
-
-  if (provider === "custom") {
-    config.baseUrl = unwrap(
-      await p.text({ message: "Base URL (OpenAI-compatible)", placeholder: "http://localhost:1234/v1", validate: (v) => (v?.startsWith("http") ? undefined : "Must start with http(s)://") }),
-    );
-  }
-
-  let ollamaLocal = false;
+  // 2. Connection -------------------------------------------------------------
+  p.log.step(pc.bold("2/4  Connection"));
+  let localOllama = false;
   if (provider === "ollama") {
     const mode = unwrap(
       await p.select({
@@ -47,7 +88,7 @@ export async function runInit(): Promise<Config> {
       }),
     );
     if (mode === "local") {
-      ollamaLocal = true;
+      localOllama = true;
       config.baseUrl = OLLAMA_URL;
     } else {
       config.baseUrl =
@@ -60,72 +101,59 @@ export async function runInit(): Promise<Config> {
                 validate: (v) => (v?.startsWith("http") ? undefined : "Must start with http(s)://"),
               }),
             );
-      if (process.env.OLLAMA_API_KEY) {
-        p.log.info("Using OLLAMA_API_KEY from your environment.");
-      } else {
-        const key = unwrap(
-          await p.password({
-            message: mode === "cloud" ? "Ollama API key (ollama.com/settings/keys)" : "API key (leave empty if none)",
-            validate: mode === "cloud" ? (v) => (v?.trim() ? undefined : "Required for Ollama Cloud") : undefined,
-          }),
-        );
-        if (key) config.apiKey = key;
-      }
+      config.apiKey = await promptApiKey(preset, { optional: mode === "remote" });
     }
+  } else {
+    if (provider === "custom") {
+      config.baseUrl = unwrap(
+        await p.text({
+          message: "Base URL (OpenAI-compatible)",
+          placeholder: "http://localhost:1234/v1",
+          validate: (v) => (v?.startsWith("http") ? undefined : "Must start with http(s)://"),
+        }),
+      );
+    }
+    config.apiKey = await promptApiKey(preset, { optional: !preset.needsKey });
   }
 
-  const envKey = preset.envKey ? process.env[preset.envKey] : undefined;
-  if (preset.needsKey && !envKey) {
-    config.apiKey = unwrap(
-      await p.password({ message: `${preset.label} API key`, validate: (v) => (v?.trim() ? undefined : "Required") }),
-    );
-  } else if (provider === "custom") {
-    const key = unwrap(await p.password({ message: "API key (leave empty if none)" }));
-    if (key) config.apiKey = key;
-  }
-
-  // Model selection from the provider's real list, with a manual fallback.
-  let models: string[] = ollamaLocal ? (ollamaModels ?? []) : [];
-  if (!ollamaLocal) {
-    const spin = p.spinner();
-    spin.start("Checking connection");
-    try {
-      models = await createProvider({ ...config, model: preset.defaultModel ?? "probe" }).listModels();
-      spin.stop(pc.green("Connected"));
-    } catch (err) {
-      spin.stop(pc.yellow("Could not list models"));
-      p.log.warn(err instanceof Error ? err.message : String(err));
+  // Verify the connection; a rejected key gets up to two more tries.
+  let models: string[] = localOllama ? (ollamaModels ?? []) : [];
+  if (!localOllama) {
+    for (let attempt = 0; ; attempt++) {
+      const spin = p.spinner();
+      spin.start("Testing the connection");
+      const v = await verifyConnection(config);
+      if (v.ok) {
+        spin.stop(pc.green(`Connected in ${v.ms} ms, ${v.models.length} model(s) available`));
+        models = v.models;
+        break;
+      }
+      spin.stop(pc.yellow("Couldn't connect"));
+      p.log.warn(v.error ?? "unknown error");
+      if (isAuthError(v) && attempt < 2 && preset.needsKey) {
+        config.apiKey = unwrap(
+          await p.password({ message: "That key was rejected. Enter it again", validate: (x) => (x?.trim() ? undefined : "Required") }),
+        ).trim();
+        continue;
+      }
+      p.log.info("Saving anyway; run `aicommit doctor` later to diagnose.");
+      break;
     }
   } else if (!ollamaModels) {
     p.log.warn("Ollama isn't running on localhost:11434. Start it and pull a model (e.g. `ollama pull qwen2.5-coder`).");
+  } else if (ollamaModels.length === 0) {
+    p.log.warn("Ollama is running but has no models. Pull one first, e.g. `ollama pull qwen2.5-coder`.");
   }
 
-  if (models.length > 0) {
-    config.model = unwrap(
-      await p.select({
-        message: "Model",
-        options: models.slice(0, 50).map((m) => ({ value: m, label: m })),
-        initialValue: preset.defaultModel && models.includes(preset.defaultModel) ? preset.defaultModel : models[0],
-      }),
-    );
-  } else {
-    config.model = unwrap(
-      await p.text({ message: "Model name", defaultValue: preset.defaultModel, placeholder: preset.defaultModel }),
-    );
-  }
+  // 3. Model ------------------------------------------------------------------
+  p.log.step(pc.bold("3/4  Model"));
+  config.model = await chooseModel(models, existing?.provider === provider ? existing.model : undefined, preset.defaultModel);
 
+  // 4. Preferences ------------------------------------------------------------
+  p.log.step(pc.bold("4/4  Preferences"));
   config.language = unwrap(
-    await p.select({
-      message: "Language for commit messages",
-      options: [
-        { value: "en", label: "English" },
-        { value: "es", label: "Español" },
-        { value: "pt", label: "Português" },
-        { value: "fr", label: "Français" },
-      ],
-    }),
+    await p.select({ message: "Language for commit messages", options: LANGUAGES, initialValue: config.language }),
   );
-
   config.push = unwrap(
     await p.select({
       message: "After committing, push to the remote?",
@@ -134,13 +162,41 @@ export async function runInit(): Promise<Config> {
         { value: "always", label: "Always push" },
         { value: "never", label: "Never push" },
       ],
+      initialValue: config.push,
     }),
   ) as Config["push"];
 
   await saveConfig(config);
-  p.log.success(`Saved to ${pc.dim(configPath())}`);
-  p.outro("Setup complete. Run " + pc.cyan("aicommit") + " in any git repo.");
+  p.log.success(`Saved to ${pc.dim(configPath())}${config.apiKey ? pc.dim("  (API key kept in your system keyring)") : ""}`);
+
+  await offerGitAlias();
+
+  p.note(
+    [
+      `${pc.dim("provider")}  ${preset.label}`,
+      `${pc.dim("model")}     ${config.model}`,
+      `${pc.dim("language")}  ${config.language}`,
+      `${pc.dim("push")}      ${config.push}`,
+    ].join("\n"),
+    "You're all set",
+  );
+  p.outro(`Run ${pc.cyan("aicommit")} in any git repo. Use ${pc.cyan("aicommit doctor")} if anything looks off.`);
   return config;
+}
+
+/** Offers `git ai` as a shortcut for aicommit. Never overwrites an alias that does something else. */
+async function offerGitAlias(): Promise<void> {
+  const current = await git.getGlobalAlias("ai");
+  if (current === "!aicommit") return;
+  if (current) {
+    p.log.info(`Your git alias "ai" already exists (${current}), leaving it alone.`);
+    return;
+  }
+  const add = unwrap(await p.confirm({ message: `Add a ${pc.cyan("git ai")} shortcut? (sets a global git alias)`, initialValue: true }));
+  if (add) {
+    await git.setGlobalAlias("ai", "!aicommit");
+    p.log.success(`Added. Now ${pc.cyan("git ai")} works in any repo.`);
+  }
 }
 
 export async function runInitCommand(): Promise<void> {

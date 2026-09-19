@@ -1,5 +1,6 @@
 import { loadConfig, saveConfig, type Config } from "../config/store.js";
-import { createProvider, PRESETS } from "../providers/registry.js";
+import { findPreset } from "../providers/registry.js";
+import { verifyConnection } from "../providers/verify.js";
 import { p, pc, unwrap } from "../ui/theme.js";
 import { runInit } from "./init.js";
 
@@ -17,7 +18,7 @@ export async function offerRecovery(
 ): Promise<{ config: Config } | null> {
   p.log.error(err instanceof Error ? err.message : String(err));
 
-  const current = config.model ?? PRESETS.find((x) => x.id === config.provider)?.defaultModel ?? "default";
+  const current = config.model ?? findPreset(config.provider)?.defaultModel ?? "default";
   const action = unwrap(
     await p.select({
       message: "What do you want to do?",
@@ -34,7 +35,7 @@ export async function offerRecovery(
   if (action === "retry") return { config };
   if (action === "provider") return { config: await runInit() };
 
-  const model = await pickModel(config, current);
+  const model = await pickModelFor(config, current);
   if (!model) return null;
   const next = { ...config, model };
 
@@ -51,25 +52,29 @@ export async function offerRecovery(
   return { config: next };
 }
 
-async function pickModel(config: Config, current: string): Promise<string | null> {
-  let models: string[] = [];
+/** Lists the provider's models (with a spinner) and lets the user pick one. */
+export async function pickModelFor(config: Config, current?: string, preferred?: string): Promise<string | null> {
   const spin = p.spinner();
   spin.start("Loading available models");
-  try {
-    models = await createProvider({ ...config, model: config.model ?? "probe" }).listModels();
-    spin.stop(`${models.length} model(s) available`);
-  } catch (e) {
+  const v = await verifyConnection(config);
+  if (v.ok) spin.stop(`${v.models.length} model(s) available`);
+  else {
     spin.stop(pc.yellow("Couldn't list models"));
-    p.log.warn(e instanceof Error ? e.message : String(e));
+    p.log.warn(v.error ?? "unknown error");
   }
+  return chooseModel(v.models, current, preferred);
+}
 
-  if (models.length === 0) {
-    const typed = unwrap(
-      await p.text({ message: "Model name", validate: (v) => (v?.trim() ? undefined : "Required") }),
-    );
-    return typed.trim();
-  }
+/** Pure prompt: pick from a list, or type a name when the list is empty or the model isn't in it. */
+export async function chooseModel(models: string[], current?: string, preferred?: string): Promise<string> {
+  const ask = async () =>
+    unwrap(await p.text({ message: "Model name", defaultValue: preferred, placeholder: preferred, validate: (v) => (v?.trim() || preferred ? undefined : "Required") })).trim() ||
+    preferred!;
 
+  if (models.length === 0) return ask();
+
+  const initial =
+    preferred && models.includes(preferred) ? preferred : (models.find((m) => m !== current) ?? current ?? models[0]);
   const choice = unwrap(
     await p.select({
       message: "Model",
@@ -77,9 +82,8 @@ async function pickModel(config: Config, current: string): Promise<string | null
         ...models.slice(0, 50).map((m) => ({ value: m, label: m, hint: m === current ? "current" : undefined })),
         { value: MANUAL, label: "Type a model name…" },
       ],
-      initialValue: models.find((m) => m !== current) ?? current,
+      initialValue: initial,
     }),
   );
-  if (choice !== MANUAL) return choice;
-  return unwrap(await p.text({ message: "Model name", validate: (v) => (v?.trim() ? undefined : "Required") })).trim();
+  return choice === MANUAL ? ask() : choice;
 }

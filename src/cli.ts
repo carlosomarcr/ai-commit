@@ -1,5 +1,7 @@
 import { cac } from "cac";
 import { runCommit } from "./commands/commit.js";
+import { runConfig } from "./commands/config.js";
+import { runDoctor } from "./commands/doctor.js";
 import { runInitCommand } from "./commands/init.js";
 import { runRules } from "./commands/rules.js";
 import { runUpdate } from "./commands/update.js";
@@ -42,6 +44,15 @@ cli
   .option("--check", "Only check, do not install")
   .option("-y, --yes", "Skip the confirmation prompt")
   .action((o) => runUpdate({ check: o.check, yes: o.yes }));
+
+cli
+  .command("config [action] [key] [value]", "View or change settings (menu, or: get | set | path | reset)")
+  .action((action, key, value) => runConfig(action, key, value));
+
+cli
+  .command("doctor", "Diagnose your setup: git, provider, key, connection, project rules")
+  .option("--deep", "Also run a real test generation against the model")
+  .action((o) => runDoctor({ deep: o.deep }));
 
 cli.command("rules", "Show the commit rules detected for this project").action(runRules);
 
