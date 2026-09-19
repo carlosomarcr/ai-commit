@@ -1,0 +1,36 @@
+{
+  "name": "aicommit-cli",
+  "version": "0.1.0",
+  "description": "AI-powered git commits with smart grouping, project rules and multi-provider support",
+  "type": "module",
+  "bin": {
+    "aicommit": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@12.4.2",
+  "scripts": {
+    "dev": "tsx src/cli.ts",
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.8.1",
+    "cac": "^7.0.0",
+    "execa": "^10.0.1",
+    "picocolors": "^1.1.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.1",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}
