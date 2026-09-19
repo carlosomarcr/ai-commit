@@ -24,8 +24,11 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
 
+  # Optional: publishes to npm from CI. If you publish by hand (or NPM_TOKEN is not set) this job just
+  # fails harmlessly and does not block the binaries and the GitHub release below.
   npm:
     needs: verify
+    continue-on-error: true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,7 +50,7 @@ jobs:
       matrix:
         include:
           - { os: ubuntu-latest, name: aicommit-linux-x64 }
-          - { os: macos-13, name: aicommit-macos-x64 }
+          - { os: macos-15-intel, name: aicommit-macos-x64 }
           - { os: macos-latest, name: aicommit-macos-arm64 }
           - { os: windows-latest, name: aicommit-windows-x64.exe }
     runs-on: ${{ matrix.os }}
@@ -71,7 +74,7 @@ jobs:
           path: ${{ matrix.name }}
 
   release:
-    needs: [npm, binaries]
+    needs: binaries
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
