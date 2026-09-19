@@ -31,7 +31,7 @@ export function formatMessage(m: CommitMessage): string {
   return m.body?.trim() ? `${header(m)}\n\n${m.body.trim()}` : header(m);
 }
 
-/** Checks a message against the hard constraints (commitlint / .aicommit.json). */
+/** Checks a message against the hard constraints (commitlint / .gitowl.json). */
 export function validateMessage(m: CommitMessage, rules: ProjectRules): string[] {
   const errors: string[] = [];
   const head = header(m);

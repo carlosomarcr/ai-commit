@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { z } from "zod";
@@ -47,14 +47,33 @@ export function migrateConfig(
 export function configDir(): string {
   const base =
     process.env.APPDATA ?? process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config");
-  return join(base, "aicommit");
+  return join(base, "gitowl");
 }
 
 export function configPath(): string {
   return join(configDir(), "config.json");
 }
 
+/** The tool used to be called "aicommit": move its settings folder over instead of losing them. */
+async function migrateLegacyDir(): Promise<void> {
+  const dir = configDir();
+  try {
+    await access(dir);
+    return; // already migrated (or fresh install)
+  } catch {
+    // fall through
+  }
+  try {
+    const legacy = join(dirname(dir), "aicommit");
+    await access(legacy);
+    await rename(legacy, dir);
+  } catch {
+    // nothing to migrate
+  }
+}
+
 export async function readRawConfig(): Promise<Raw | null> {
+  await migrateLegacyDir();
   try {
     return JSON.parse(await readFile(configPath(), "utf8")) as Raw;
   } catch {

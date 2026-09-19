@@ -136,7 +136,7 @@ export async function runInit(): Promise<Config> {
         ).trim();
         continue;
       }
-      p.log.info("Saving anyway; run `aicommit doctor` later to diagnose.");
+      p.log.info("Saving anyway; run `gitowl doctor` later to diagnose.");
       break;
     }
   } else if (!ollamaModels) {
@@ -180,22 +180,22 @@ export async function runInit(): Promise<Config> {
     ].join("\n"),
     "You're all set",
   );
-  p.outro(`Run ${pc.cyan("aicommit")} in any git repo. Use ${pc.cyan("aicommit doctor")} if anything looks off.`);
+  p.outro(`Run ${pc.cyan("gitowl")} in any git repo. Use ${pc.cyan("gitowl doctor")} if anything looks off.`);
   return config;
 }
 
-/** Offers `git ai` as a shortcut for aicommit. Never overwrites an alias that does something else. */
+/** Offers `git owl` as a shortcut for gitowl. Never overwrites an alias that does something else. */
 async function offerGitAlias(): Promise<void> {
-  const current = await git.getGlobalAlias("ai");
-  if (current === "!aicommit") return;
+  const current = await git.getGlobalAlias("owl");
+  if (current === "!gitowl") return;
   if (current) {
-    p.log.info(`Your git alias "ai" already exists (${current}), leaving it alone.`);
+    p.log.info(`Your git alias "owl" already exists (${current}), leaving it alone.`);
     return;
   }
-  const add = unwrap(await p.confirm({ message: `Add a ${pc.cyan("git ai")} shortcut? (sets a global git alias)`, initialValue: true }));
+  const add = unwrap(await p.confirm({ message: `Add a ${pc.cyan("git owl")} shortcut? (sets a global git alias)`, initialValue: true }));
   if (add) {
-    await git.setGlobalAlias("ai", "!aicommit");
-    p.log.success(`Added. Now ${pc.cyan("git ai")} works in any repo.`);
+    await git.setGlobalAlias("owl", "!gitowl");
+    p.log.success(`Added. Now ${pc.cyan("git owl")} works in any repo.`);
   }
 }
 

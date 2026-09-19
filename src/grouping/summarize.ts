@@ -9,7 +9,7 @@ export interface SummarizeOptions {
   maxDiffFiles?: number;
   /** Max chars kept per file diff. */
   perFileCap?: number;
-  /** Files matching this (from .aicommitignore) are committed but their content is never sent. */
+  /** Files matching this (from .gitowlignore) are committed but their content is never sent. */
   ignore?: IgnoreMatcher;
 }
 
@@ -78,7 +78,7 @@ export function renderDiffs(summaries: FileSummary[], budget: number): string {
 
   const parts = summaries.map((s) => {
     if (!s.diff) {
-      const why = s.withheld === "sensitive" ? "sensitive file, content withheld" : s.withheld === "ignored" ? "listed in .aicommitignore" : s.binary ? "binary" : s.kind === "lock" ? "lockfile" : s.kind === "generated" ? "generated" : "omitted for size";
+      const why = s.withheld === "sensitive" ? "sensitive file, content withheld" : s.withheld === "ignored" ? "listed in .gitowlignore" : s.binary ? "binary" : s.kind === "lock" ? "lockfile" : s.kind === "generated" ? "generated" : "omitted for size";
       return `### ${s.path}\n(${why}, +${s.additions} -${s.deletions}; content not shown)`;
     }
     const text = s.diff.length > cap ? `${s.diff.slice(0, cap)}\n[truncated]` : s.diff;

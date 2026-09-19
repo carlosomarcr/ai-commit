@@ -14,7 +14,7 @@ const FALSE = new Set(["false", "off", "no", "0"]);
 
 /** Validates and applies one setting; throws a user-readable error when the value is invalid. */
 export function applySetting(config: Config, key: string, value: string | undefined): Config {
-  if (key === "apiKey") throw new Error("Set the API key with `aicommit config` (interactive), so it never lands in your shell history.");
+  if (key === "apiKey") throw new Error("Set the API key with `gitowl config` (interactive), so it never lands in your shell history.");
   if (!(SETTABLE as readonly string[]).includes(key)) {
     throw new Error(`Unknown setting "${key}". You can set: ${SETTABLE.join(", ")}.`);
   }
@@ -64,7 +64,7 @@ export async function runConfig(action?: string, key?: string, value?: string): 
   }
   if (action === "get" || action === "set") {
     const config = await loadConfig();
-    if (!config) throw new Error("Not configured yet. Run `aicommit init`.");
+    if (!config) throw new Error("Not configured yet. Run `gitowl init`.");
     if (action === "get") {
       const view = displayConfig(config);
       if (key) {
@@ -73,17 +73,17 @@ export async function runConfig(action?: string, key?: string, value?: string): 
       } else for (const [k, v] of Object.entries(view)) console.log(`${k} = ${v}`);
       return;
     }
-    if (!key) throw new Error("Usage: aicommit config set <key> <value>");
+    if (!key) throw new Error("Usage: gitowl config set <key> <value>");
     await saveConfig(applySetting(config, key, value));
     console.log(`${key} updated`);
     return;
   }
   if (action === "reset") {
     banner();
-    const ok = unwrap(await p.confirm({ message: "Delete your aicommit settings and stored API key?", initialValue: false }));
+    const ok = unwrap(await p.confirm({ message: "Delete your gitowl settings and stored API key?", initialValue: false }));
     if (ok) {
       await resetConfig();
-      p.outro("Settings removed. Run `aicommit init` to set up again.");
+      p.outro("Settings removed. Run `gitowl init` to set up again.");
     } else p.cancel("Nothing changed.");
     return;
   }
@@ -171,7 +171,7 @@ async function configMenu(): Promise<void> {
       const ok = unwrap(await p.confirm({ message: "Delete your settings and stored API key?", initialValue: false }));
       if (ok) {
         await resetConfig();
-        p.outro("Settings removed. Run `aicommit init` to set up again.");
+        p.outro("Settings removed. Run `gitowl init` to set up again.");
         return;
       }
     }

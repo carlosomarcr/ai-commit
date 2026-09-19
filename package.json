@@ -1,10 +1,10 @@
 {
-  "name": "aicommit-cli",
+  "name": "gitowl",
   "version": "0.1.0",
   "description": "AI-powered git commits with smart grouping, project rules and multi-provider support",
   "type": "module",
   "bin": {
-    "aicommit": "dist/cli.js"
+    "gitowl": "dist/cli.js"
   },
   "files": [
     "dist",
@@ -53,10 +53,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/carlosomarcr/ai-commit.git"
+    "url": "git+https://github.com/carlosomarcr/gitowl.git"
   },
-  "homepage": "https://github.com/carlosomarcr/ai-commit#readme",
+  "homepage": "https://github.com/carlosomarcr/gitowl#readme",
   "bugs": {
-    "url": "https://github.com/carlosomarcr/ai-commit/issues"
+    "url": "https://github.com/carlosomarcr/gitowl/issues"
   }
 }

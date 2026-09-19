@@ -1,15 +1,15 @@
 #!/bin/sh
-# aicommit installer for macOS / Linux.
+# gitowl installer for macOS / Linux.
 #   curl -fsSL <url>/install.sh | sh
-# Options (environment): AICOMMIT_PACKAGE (default aicommit-cli), AICOMMIT_NO_INIT=1 to skip the wizard.
+# Options (environment): GITOWL_PACKAGE (default gitowl), GITOWL_NO_INIT=1 to skip the wizard.
 set -eu
 
-PACKAGE="${AICOMMIT_PACKAGE:-aicommit-cli}"
+PACKAGE="${GITOWL_PACKAGE:-gitowl}"
 
 say()  { printf '\033[1;35m◆\033[0m %s\n' "$1"; }
 fail() { printf '\033[1;31m✖\033[0m %s\n' "$1" >&2; exit 1; }
 
-say "Installing aicommit"
+say "Installing gitowl"
 
 command -v git >/dev/null 2>&1 || fail "git is not installed. Install it first (https://git-scm.com)."
 
@@ -29,17 +29,17 @@ else
   fail "Neither pnpm nor npm was found."
 fi
 
-if ! command -v aicommit >/dev/null 2>&1; then
-  printf '\033[1;33m▲\033[0m Installed, but "aicommit" is not on your PATH yet. Open a new terminal (or add your global bin directory to PATH).\n'
+if ! command -v gitowl >/dev/null 2>&1; then
+  printf '\033[1;33m▲\033[0m Installed, but "gitowl" is not on your PATH yet. Open a new terminal (or add your global bin directory to PATH).\n'
   exit 0
 fi
 
-say "Installed $(aicommit --version)"
+say "Installed $(gitowl --version)"
 
 # Under `curl | sh` stdin is the script itself, so hand the wizard the real terminal.
-if [ "${AICOMMIT_NO_INIT:-}" != "1" ] && [ -e /dev/tty ]; then
+if [ "${GITOWL_NO_INIT:-}" != "1" ] && [ -e /dev/tty ]; then
   say "Starting setup"
-  aicommit init </dev/tty
+  gitowl init </dev/tty
 else
-  say "Run 'aicommit init' to finish setup."
+  say "Run 'gitowl init' to finish setup."
 fi

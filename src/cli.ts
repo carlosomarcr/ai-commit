@@ -8,7 +8,7 @@ import { runUpdate } from "./commands/update.js";
 import { scheduleUpdateNotice } from "./update/check.js";
 import { readPackageInfo } from "./update/version.js";
 
-const cli = cac("aicommit");
+const cli = cac("gitowl");
 
 cli
   .command("", "Generate a commit with AI, confirm it, then optionally push")

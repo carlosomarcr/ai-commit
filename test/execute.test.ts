@@ -30,7 +30,7 @@ async function prepare() {
 }
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), "aicommit-git-"));
+  dir = await mkdtemp(join(tmpdir(), "gitowl-git-"));
   process.chdir(dir);
   await sh("init", "-q");
   await sh("config", "user.email", "t@t.t");

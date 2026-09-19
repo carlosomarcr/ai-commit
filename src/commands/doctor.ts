@@ -21,14 +21,14 @@ export interface Check {
 
 /** Suggests the next step for a failed connection, based on what the provider answered. */
 export function connectionFix(v: Verification, config: Config): string {
-  if (v.status === 401) return "The key was rejected. Update it with `aicommit config` → API key.";
-  if (v.status === 402 || v.status === 403) return "Your plan may not include this. Pick another model with `aicommit config` → Model.";
-  if (v.status === 404) return "The URL or model wasn't found. Check the base URL in `aicommit config`.";
+  if (v.status === 401) return "The key was rejected. Update it with `gitowl config` → API key.";
+  if (v.status === 402 || v.status === 403) return "Your plan may not include this. Pick another model with `gitowl config` → Model.";
+  if (v.status === 404) return "The URL or model wasn't found. Check the base URL in `gitowl config`.";
   if (v.status === 429) return "Rate limited. Wait a moment and try again.";
   if (config.provider === "ollama" && (config.baseUrl ?? "").includes("localhost")) {
     return "Is Ollama running? Start it with `ollama serve`, then retry.";
   }
-  return "Check your internet connection and the provider URL in `aicommit config`.";
+  return "Check your internet connection and the provider URL in `gitowl config`.";
 }
 
 /** Minimum supported Node is 20.19 (what our dependencies require). */
@@ -61,7 +61,7 @@ async function environmentChecks(): Promise<Check[]> {
   checks.push(
     nodeSupported(process.versions.node)
       ? { status: "ok", label: "Node.js", detail: process.versions.node }
-      : { status: "fail", label: "Node.js", detail: process.versions.node, fix: "aicommit needs Node 20.19 or newer." },
+      : { status: "fail", label: "Node.js", detail: process.versions.node, fix: "gitowl needs Node 20.19 or newer." },
   );
 
   const version = await git.gitVersion();
@@ -82,11 +82,11 @@ async function environmentChecks(): Promise<Check[]> {
     });
   }
 
-  const alias = await git.getGlobalAlias("ai");
+  const alias = await git.getGlobalAlias("owl");
   checks.push(
-    alias === "!aicommit"
-      ? { status: "ok", label: "git ai shortcut", detail: "installed" }
-      : { status: "info", label: "git ai shortcut", detail: "not set", fix: "Optional: run `aicommit init` to add it." },
+    alias === "!gitowl"
+      ? { status: "ok", label: "git owl shortcut", detail: "installed" }
+      : { status: "info", label: "git owl shortcut", detail: "not set", fix: "Optional: run `gitowl init` to add it." },
   );
   return checks;
 }
@@ -107,10 +107,10 @@ async function providerChecks(config: Config, deep: boolean): Promise<Check[]> {
       status: "warn",
       label: "API key",
       detail: "stored in the config file",
-      fix: backend ? "Re-run `aicommit config` → API key to move it into the keyring." : "No system keyring is available here; the file is only readable by you.",
+      fix: backend ? "Re-run `gitowl config` → API key to move it into the keyring." : "No system keyring is available here; the file is only readable by you.",
     });
   } else if (preset?.needsKey) {
-    checks.push({ status: "fail", label: "API key", detail: "missing", fix: `Run \`aicommit config\` → API key${preset.envKey ? `, or set ${preset.envKey}` : ""}.` });
+    checks.push({ status: "fail", label: "API key", detail: "missing", fix: `Run \`gitowl config\` → API key${preset.envKey ? `, or set ${preset.envKey}` : ""}.` });
   } else checks.push({ status: "info", label: "API key", detail: "none (not required)" });
   checks.push({ status: backend ? "ok" : "info", label: "System keyring", detail: backend ? "available" : "not available, using the config file" });
 
@@ -125,7 +125,7 @@ async function providerChecks(config: Config, deep: boolean): Promise<Check[]> {
 
   const model = config.model ?? preset?.defaultModel;
   if (model && v.models.length > 0 && !v.models.includes(model)) {
-    checks.push({ status: "warn", label: "Model", detail: `"${model}" isn't in the provider's list`, fix: "Choose one with `aicommit config` → Model (it may still work if it's an alias)." });
+    checks.push({ status: "warn", label: "Model", detail: `"${model}" isn't in the provider's list`, fix: "Choose one with `gitowl config` → Model (it may still work if it's an alias)." });
   } else checks.push({ status: "ok", label: "Model", detail: model ?? "default" });
 
   if (deep) checks.push(await generationCheck(config));
@@ -179,7 +179,7 @@ async function repoChecks(): Promise<Check[]> {
       detail: files.length ? `${files.map((s) => s.label).join(", ")} · style ${rules.style}` : `none found · style ${rules.style} (from history)`,
     });
   } catch (err) {
-    checks.push({ status: "fail", label: "Project rules", detail: err instanceof Error ? err.message : String(err), fix: "Fix the .aicommit.json in this project." });
+    checks.push({ status: "fail", label: "Project rules", detail: err instanceof Error ? err.message : String(err), fix: "Fix the .gitowl.json in this project." });
   }
   return checks;
 }
@@ -188,7 +188,7 @@ async function updateCheck(): Promise<Check> {
   const method = currentInstall();
   const { current, latest, newer } = await checkNow(3000);
   if (!latest) return { status: "info", label: "Updates", detail: `v${current} (couldn't reach the registry; offline or not published yet)` };
-  if (newer) return { status: "warn", label: "Updates", detail: `v${current} → v${latest} available`, fix: method === "dev" ? "Source checkout: git pull && pnpm install && pnpm build" : "Run `aicommit update`." };
+  if (newer) return { status: "warn", label: "Updates", detail: `v${current} → v${latest} available`, fix: method === "dev" ? "Source checkout: git pull && pnpm install && pnpm build" : "Run `gitowl update`." };
   return { status: "ok", label: "Updates", detail: `v${current} is the latest` };
 }
 
@@ -223,7 +223,7 @@ export async function runDoctor(opts: { deep?: boolean }): Promise<void> {
 
   const config = await loadConfig();
   if (!config) {
-    show("Provider", [{ status: "fail", label: "Configuration", detail: "not found or invalid", fix: "Run `aicommit init` to set things up." }]);
+    show("Provider", [{ status: "fail", label: "Configuration", detail: "not found or invalid", fix: "Run `gitowl init` to set things up." }]);
   } else {
     spin.start(opts.deep ? "Testing the provider (including a real generation)" : "Testing the provider");
     const checks = await providerChecks(config, Boolean(opts.deep));

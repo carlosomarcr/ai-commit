@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/** Schema of `.aicommit.json`, the highest-priority source of project rules. */
+/** Schema of `.gitowl.json`, the highest-priority source of project rules. */
 export const ProjectConfigSchema = z.object({
   language: z.string().optional(),
   instructions: z.string().optional(),
@@ -16,12 +16,12 @@ export function parseProjectConfig(json: string): ProjectConfig {
   try {
     data = JSON.parse(json);
   } catch (err) {
-    throw new Error(`Invalid .aicommit.json: ${(err as Error).message}`);
+    throw new Error(`Invalid .gitowl.json: ${(err as Error).message}`);
   }
   const r = ProjectConfigSchema.safeParse(data);
   if (!r.success) {
     const issue = r.error.issues[0]!;
-    throw new Error(`Invalid .aicommit.json at "${issue.path.join(".")}": ${issue.message}`);
+    throw new Error(`Invalid .gitowl.json at "${issue.path.join(".")}": ${issue.message}`);
   }
   return r.data;
 }

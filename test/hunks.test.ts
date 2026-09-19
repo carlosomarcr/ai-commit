@@ -27,7 +27,7 @@ async function diffOf(a: string, b: string): Promise<string> {
 }
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), "aicommit-hunk-"));
+  dir = await mkdtemp(join(tmpdir(), "gitowl-hunk-"));
   process.chdir(dir);
   await sh("init", "-q");
   await sh("config", "user.email", "t@t.t");

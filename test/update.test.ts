@@ -20,9 +20,9 @@ describe("isNewer", () => {
 
 describe("detectInstall", () => {
   it("recognises package managers and source checkouts", () => {
-    expect(detectInstall("C:\\Users\\c\\AppData\\Local\\pnpm\\global\\5\\node_modules\\.pnpm\\aicommit-cli@1\\node_modules\\aicommit-cli\\dist\\cli.js")).toBe("pnpm");
-    expect(detectInstall("C:\\Users\\c\\AppData\\Roaming\\npm\\node_modules\\aicommit-cli\\dist\\cli.js")).toBe("npm");
-    expect(detectInstall("/home/c/.npm/_npx/abc/node_modules/aicommit-cli/dist/cli.js")).toBe("npx");
+    expect(detectInstall("C:\\Users\\c\\AppData\\Local\\pnpm\\global\\5\\node_modules\\.pnpm\\gitowl@1\\node_modules\\gitowl\\dist\\cli.js")).toBe("pnpm");
+    expect(detectInstall("C:\\Users\\c\\AppData\\Roaming\\npm\\node_modules\\gitowl\\dist\\cli.js")).toBe("npm");
+    expect(detectInstall("/home/c/.npm/_npx/abc/node_modules/gitowl/dist/cli.js")).toBe("npx");
     expect(detectInstall("C:\\Users\\c\\Desktop\\Projects\\AICommit\\dist\\cli.js")).toBe("dev");
   });
   it("only offers an update command for real installs", () => {
@@ -73,6 +73,6 @@ describe("migrateConfig", () => {
 
 describe("readPackageInfo", () => {
   it("finds this package", () => {
-    expect(readPackageInfo().name).toBe("aicommit-cli");
+    expect(readPackageInfo().name).toBe("gitowl");
   });
 });

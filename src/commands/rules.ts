@@ -2,7 +2,7 @@ import * as git from "../git/git.js";
 import { loadRules } from "../rules/index.js";
 import { banner, p, pc } from "../ui/theme.js";
 
-/** `aicommit rules`: shows exactly what the AI will be told about this project. */
+/** `gitowl rules`: shows exactly what the AI will be told about this project. */
 export async function runRules(): Promise<void> {
   banner();
   p.intro(pc.bgMagenta(pc.black(" rules ")));
@@ -33,5 +33,5 @@ export async function runRules(): Promise<void> {
   p.note(constraints.join("\n"), "Constraints");
 
   if (rules.text) p.note(rules.text, "Excerpts sent to the AI");
-  p.outro(pc.dim("Create a .aicommit.json to override anything above."));
+  p.outro(pc.dim("Create a .gitowl.json to override anything above."));
 }

@@ -38,11 +38,11 @@ export function createProvider(cfg: Config): Provider {
   const preset = findPreset(cfg.provider);
   if (!preset) throw new ProviderError(`Unknown provider "${cfg.provider}"`);
   const model = cfg.model ?? preset.defaultModel;
-  if (!model) throw new ProviderError(`No model configured for ${preset.label}. Run \`aicommit config\`.`);
+  if (!model) throw new ProviderError(`No model configured for ${preset.label}. Run \`gitowl config\`.`);
 
   const apiKey = keyFromEnv(cfg) || cfg.apiKey || undefined;
   if (preset.needsKey && !apiKey) {
-    throw new ProviderError(`Missing API key for ${preset.label}. Set ${preset.envKey} or run \`aicommit config\`.`);
+    throw new ProviderError(`Missing API key for ${preset.label}. Set ${preset.envKey} or run \`gitowl config\`.`);
   }
 
   switch (preset.kind) {
@@ -57,7 +57,7 @@ export function createProvider(cfg: Config): Provider {
       return new GeminiProvider(model, apiKey!, cfg.baseUrl);
     case "openai": {
       const baseUrl = cfg.baseUrl ?? preset.baseUrl;
-      if (!baseUrl) throw new ProviderError("No base URL configured. Run `aicommit config`.");
+      if (!baseUrl) throw new ProviderError("No base URL configured. Run `gitowl config`.");
       return new OpenAICompatibleProvider({ name: preset.id, baseUrl, apiKey, model });
     }
   }

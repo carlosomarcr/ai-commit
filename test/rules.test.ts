@@ -81,7 +81,7 @@ describe("parseProjectConfig", () => {
 describe("loadRules", () => {
   let root: string;
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), "aicommit-"));
+    root = await mkdtemp(join(tmpdir(), "gitowl-"));
   });
   afterEach(() => rm(root, { recursive: true, force: true }));
 
@@ -91,11 +91,11 @@ describe("loadRules", () => {
     await writeFile(join(root, "AGENTS.md"), "## Commits\nUse conventional commits.\n"); // duplicate content
     await writeFile(join(root, "commitlint.config.js"), "module.exports={rules:{'header-max-length':[2,'always',50]}}");
     await writeFile(join(root, "packages", "web", "AGENTS.md"), "## Commit rules\nScope is always web.\n");
-    await writeFile(join(root, "packages", "web", ".aicommit.json"), '{"language":"es"}');
+    await writeFile(join(root, "packages", "web", ".gitowl.json"), '{"language":"es"}');
 
     const rules = await loadRules({ cwd: join(root, "packages", "web"), root, subjects: [] });
     const labels = rules.sources.map((s) => s.label);
-    expect(labels).toContain(".aicommit.json");
+    expect(labels).toContain(".gitowl.json");
     expect(labels).toContain("commitlint.config.js");
     expect(labels.filter((l) => l.includes("§")).length).toBe(2); // web/AGENTS + one of the root duplicates
     expect(rules.text).toContain("Scope is always web.");

@@ -1,4 +1,4 @@
-# aicommit
+# 🦉 gitowl
 
 AI-written git commits that **group your changes into logical commits**, follow **your project's own rules**, and **always ask before committing or pushing**. Works with local models (Ollama) and hosted ones (DeepSeek, Claude, Gemini, OpenAI, Groq, OpenRouter, any OpenAI-compatible endpoint).
 
@@ -29,24 +29,24 @@ AI-written git commits that **group your changes into logical commits**, follow 
 
 ```bash
 # any platform, needs Node 20.19+
-npm install -g aicommit-cli        # or: pnpm add -g aicommit-cli
+npm install -g gitowl        # or: pnpm add -g gitowl
 
 # one-liners that also run the setup wizard
-curl -fsSL https://raw.githubusercontent.com/carlosomarcr/ai-commit/main/install.sh | sh          # macOS / Linux
-irm https://raw.githubusercontent.com/carlosomarcr/ai-commit/main/install.ps1 | iex               # Windows (PowerShell)
+curl -fsSL https://raw.githubusercontent.com/carlosomarcr/gitowl/main/install.sh | sh          # macOS / Linux
+irm https://raw.githubusercontent.com/carlosomarcr/gitowl/main/install.ps1 | iex               # Windows (PowerShell)
 ```
 
-Standalone binaries (no Node needed) for Windows, macOS and Linux are attached to every [release](https://github.com/carlosomarcr/ai-commit/releases). They keep the API key in the config file (owner-only permissions) because the OS keyring is a native module that cannot be embedded; the npm install uses the keyring.
+Standalone binaries (no Node needed) for Windows, macOS and Linux are attached to every [release](https://github.com/carlosomarcr/gitowl/releases). They keep the API key in the config file (owner-only permissions) because the OS keyring is a native module that cannot be embedded; the npm install uses the keyring.
 
 ## Quick start
 
 ```bash
-aicommit init      # 4-step wizard: provider, connection, model, preferences
+gitowl init      # 4-step wizard: provider, connection, model, preferences
 cd my-repo
-aicommit           # plan → review → commit → optional push
+gitowl           # plan → review → commit → optional push
 ```
 
-`aicommit doctor` checks git, your provider, key, model and project rules and tells you how to fix anything that is off (`--deep` also runs a real test generation).
+`gitowl doctor` checks git, your provider, key, model and project rules and tells you how to fix anything that is off (`--deep` also runs a real test generation).
 
 ## How it works
 
@@ -61,20 +61,20 @@ Cancelling or hitting Ctrl+C before commits start restores your staging exactly 
 ### Split a single file into several commits
 
 ```bash
-aicommit --hunks
+gitowl --hunks
 ```
 
 Unrelated changes inside one file (a feature and an unrelated typo fix) can go into different commits. Files are only split when applying all hunks reproduces the staged content byte for byte; otherwise they stay whole.
 
 ## Your project's rules
 
-aicommit reads the commit rules that already exist in your repo, nearest file wins (great for monorepos):
+gitowl reads the commit rules that already exist in your repo, nearest file wins (great for monorepos):
 
 `AGENTS.md`, `AGENT.md`, `CLAUDE.md`, `.claude/CLAUDE.md`, `GEMINI.md`, `.cursorrules`, `.cursor/rules/*`, `.github/copilot-instructions.md`, `CONTRIBUTING.md`, `.gitmessage`, and `commitlint` config (allowed types, scopes, header length).
 
-Only the commit-related sections are extracted (headings about commits/git, plus lines that mention committing). It also learns from your last 30 commits: language, conventional or free-form, scope usage. `aicommit rules` shows exactly what the model will be told.
+Only the commit-related sections are extracted (headings about commits/git, plus lines that mention committing). It also learns from your last 30 commits: language, conventional or free-form, scope usage. `gitowl rules` shows exactly what the model will be told.
 
-Highest priority is an optional `.aicommit.json`:
+Highest priority is an optional `.gitowl.json`:
 
 ```json
 { "language": "es", "style": "conventional", "types": ["feat", "fix", "chore"],
@@ -103,19 +103,19 @@ If the model fails (not in your plan, rate limit, invalid JSON) you can switch m
 
 - Diffs are scanned for API keys, tokens, private keys and hard-coded passwords. Secrets are **redacted before anything is sent to a model**, and files like `.env`, `*.pem`, `id_rsa` are never sent at all.
 - Flagged files can be left out of the commit (default with `--yes`); `--allow-secrets` overrides.
-- `.aicommitignore` (gitignore syntax) lists files that are committed but whose content is never sent to the model.
+- `.gitowlignore` (gitignore syntax) lists files that are committed but whose content is never sent to the model.
 - Hosted providers do receive your (redacted) diffs. For private code, use a local Ollama.
 - The scanner is heuristic and not a replacement for a dedicated tool such as gitleaks.
 
 ## Commands and flags
 
 ```
-aicommit [options]            plan, review, commit, push
-aicommit init                 setup wizard
-aicommit config [get|set|path|reset]   menu, or scriptable access
-aicommit doctor [--deep]      diagnose your setup
-aicommit rules                show the rules found for this project
-aicommit update [--check]     update to the latest version
+gitowl [options]            plan, review, commit, push
+gitowl init                 setup wizard
+gitowl config [get|set|path|reset]   menu, or scriptable access
+gitowl doctor [--deep]      diagnose your setup
+gitowl rules                show the rules found for this project
+gitowl update [--check]     update to the latest version
 
 -a, --all              include unstaged and untracked files
     --single           one commit for everything
@@ -128,21 +128,21 @@ aicommit update [--check]     update to the latest version
 -i, --instructions "…" extra guidance for the model
 ```
 
-A `git ai` shortcut can be added by the wizard.
+A `git owl` shortcut can be added by the wizard.
 
 ## Updates
 
-`aicommit update` detects how it was installed (npm, pnpm, yarn, bun, binary) and runs the right command. A once-a-day, non-blocking check prints a notice when a new version exists; disable it with `aicommit config set updateCheck off` or `AICOMMIT_NO_UPDATE_CHECK=1`.
+`gitowl update` detects how it was installed (npm, pnpm, yarn, bun, binary) and runs the right command. A once-a-day, non-blocking check prints a notice when a new version exists; disable it with `gitowl config set updateCheck off` or `GITOWL_NO_UPDATE_CHECK=1`.
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---|---|
 | `Could not reach ollama … connection refused` | start it: `ollama serve` |
-| `402` / "not included in your plan" | pick another model when prompted, or `aicommit config` → Model |
-| Messages ignore my format | `aicommit rules` to see what was detected; add `.aicommit.json` |
+| `402` / "not included in your plan" | pick another model when prompted, or `gitowl config` → Model |
+| Messages ignore my format | `gitowl rules` to see what was detected; add `.gitowl.json` |
 | A merge/rebase is in progress | finish or abort it, then rerun |
-| Anything else | `aicommit doctor --deep` |
+| Anything else | `gitowl doctor --deep` |
 
 ## Development
 

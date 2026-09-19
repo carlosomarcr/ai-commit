@@ -8,11 +8,11 @@ export interface PackageInfo {
 }
 
 /** Injected by the bundler so a standalone binary (no package.json next to it) still knows its version. */
-declare const __AICOMMIT_PKG__: PackageInfo | undefined;
+declare const __GITOWL_PKG__: PackageInfo | undefined;
 
 /** Walks up from this file (src/ or dist/) to the package.json, so it works both in dev and built. */
 export function readPackageInfo(): PackageInfo {
-  if (typeof __AICOMMIT_PKG__ !== "undefined") return __AICOMMIT_PKG__;
+  if (typeof __GITOWL_PKG__ !== "undefined") return __GITOWL_PKG__;
   let dir = dirname(fileURLToPath(import.meta.url));
   for (let i = 0; i < 5; i++) {
     try {
@@ -23,7 +23,7 @@ export function readPackageInfo(): PackageInfo {
     }
     dir = dirname(dir);
   }
-  return { name: "aicommit-cli", version: "0.0.0" };
+  return { name: "gitowl", version: "0.0.0" };
 }
 
 function parse(v: string): { nums: number[]; pre: string | null } {

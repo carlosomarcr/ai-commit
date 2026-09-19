@@ -100,7 +100,7 @@ describe("scanDiff", () => {
   });
 });
 
-describe(".aicommitignore matching", () => {
+describe(".gitowlignore matching", () => {
   const ig = compileIgnore("# comment\n\n*.snap\n/build/\ndocs/**/*.pdf\nsecrets/\n!keep.snap\nvendor");
   it("matches gitignore-style patterns", () => {
     expect(ig("a/b/c.snap")).toBe(true);
@@ -212,7 +212,7 @@ describe("with a real repository", () => {
   };
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "aicommit-sec-"));
+    dir = await mkdtemp(join(tmpdir(), "gitowl-sec-"));
     process.chdir(dir);
     await sh("init", "-q");
     await sh("config", "user.email", "t@t.t");
@@ -241,7 +241,7 @@ describe("with a real repository", () => {
     expect(payload).toContain("[REDACTED:aws-access-key]");
     expect(payload).not.toContain("TOKEN=abc");
     expect(payload).toContain("sensitive file, content withheld");
-    expect(payload).toContain("listed in .aicommitignore");
+    expect(payload).toContain("listed in .gitowlignore");
     expect(payload).not.toContain("hello");
   });
 

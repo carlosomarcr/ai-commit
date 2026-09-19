@@ -8,7 +8,7 @@ export async function guardOperation(): Promise<void> {
   const op = await git.operationInProgress();
   if (!op) return;
   p.cancel(
-    `A ${op} is in progress. Finish it first (${op === "rebase" ? "git rebase --continue" : `git ${op} --continue`}, or --abort), then run aicommit again.`,
+    `A ${op} is in progress. Finish it first (${op === "rebase" ? "git rebase --continue" : `git ${op} --continue`}, or --abort), then run gitowl again.`,
   );
   process.exit(1);
 }

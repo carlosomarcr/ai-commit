@@ -23,7 +23,7 @@ function memoryBackend(): SecretBackend & { store: Map<string, string> } {
 
 let dir: string;
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), "aicommit-cfg-"));
+  dir = await mkdtemp(join(tmpdir(), "gitowl-cfg-"));
   vi.stubEnv("APPDATA", dir);
   vi.stubEnv("DEEPSEEK_API_KEY", "");
 });
@@ -58,7 +58,7 @@ describe("config storage with keyring", () => {
   it("migrates a plain-text key from an older config into the keyring", async () => {
     const kr = memoryBackend();
     setSecretBackend(kr);
-    await mkdir(join(dir, "aicommit"), { recursive: true });
+    await mkdir(join(dir, "gitowl"), { recursive: true });
     await writeFile(configPath(), JSON.stringify({ provider: "deepseek", apiKey: "sk-old", language: "en", push: "ask" }));
 
     const loaded = await loadConfig();
@@ -140,5 +140,30 @@ describe("nodeSupported", () => {
     expect(nodeSupported("24.21.0")).toBe(true);
     expect(nodeSupported("20.18.9")).toBe(false);
     expect(nodeSupported("18.19.0")).toBe(false);
+  });
+});
+
+describe("migration from the old 'aicommit' name", () => {
+  it("moves the old settings folder (config and state) to the new one on first read", async () => {
+    setSecretBackend(null);
+    await mkdir(join(dir, "aicommit"), { recursive: true });
+    await writeFile(join(dir, "aicommit", "config.json"), JSON.stringify({ provider: "deepseek", model: "deepseek-chat", language: "es", push: "never" }));
+    await writeFile(join(dir, "aicommit", "state.json"), "{}");
+
+    const loaded = await loadConfig();
+    expect(loaded).toMatchObject({ provider: "deepseek", model: "deepseek-chat", language: "es", push: "never" });
+    await expect(readFile(join(dir, "gitowl", "state.json"), "utf8")).resolves.toBe("{}");
+    await expect(readFile(join(dir, "aicommit", "config.json"), "utf8")).rejects.toThrow(); // moved, not copied
+  });
+
+  it("never overwrites settings that already exist under the new name", async () => {
+    setSecretBackend(null);
+    await mkdir(join(dir, "aicommit"), { recursive: true });
+    await mkdir(join(dir, "gitowl"), { recursive: true });
+    await writeFile(join(dir, "aicommit", "config.json"), JSON.stringify({ provider: "openai" }));
+    await writeFile(join(dir, "gitowl", "config.json"), JSON.stringify({ provider: "deepseek" }));
+
+    expect((await loadConfig())?.provider).toBe("deepseek");
+    await expect(readFile(join(dir, "aicommit", "config.json"), "utf8")).resolves.toContain("openai"); // untouched
   });
 });

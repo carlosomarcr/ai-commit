@@ -13,7 +13,7 @@ First public release.
 - Asks before every commit and, afterwards, before pushing to the branch's upstream (sets it if missing, warns on `main`/`master`, never force-pushes).
 
 ### Project rules
-- Reads commit rules from `AGENTS.md`, `AGENT.md`, `CLAUDE.md`, `GEMINI.md`, `.cursorrules`, `.cursor/rules/*`, Copilot instructions, `CONTRIBUTING.md`, `.gitmessage`, commitlint config and `.aicommit.json`, plus the style of your recent commits. Nearest file wins (monorepos). `aicommit rules` shows what is used.
+- Reads commit rules from `AGENTS.md`, `AGENT.md`, `CLAUDE.md`, `GEMINI.md`, `.cursorrules`, `.cursor/rules/*`, Copilot instructions, `CONTRIBUTING.md`, `.gitmessage`, commitlint config and `.gitowl.json`, plus the style of your recent commits. Nearest file wins (monorepos). `gitowl rules` shows what is used.
 - Messages are validated against allowed types, scopes and header length, with automatic retries.
 
 ### Providers
@@ -22,14 +22,14 @@ First public release.
 - Timeouts and readable network errors instead of "fetch failed".
 
 ### Setup and maintenance
-- Guided 4-step `aicommit init`: tests the connection, retries a rejected key, reuses saved keys, offers a `git ai` shortcut.
+- Guided 4-step `gitowl init`: tests the connection, retries a rejected key, reuses saved keys, offers a `git owl` shortcut.
 - API keys are stored in the system keyring (Windows Credential Manager, macOS Keychain, libsecret) with a config-file fallback.
-- `aicommit doctor` (`--deep` runs a real test generation) and `aicommit config` (menu, plus `get` / `set` / `path` / `reset`).
-- `aicommit update` and a daily, non-blocking update notice (opt out with `aicommit config set updateCheck off` or `AICOMMIT_NO_UPDATE_CHECK=1`). Config files are versioned and migrated automatically.
+- `gitowl doctor` (`--deep` runs a real test generation) and `gitowl config` (menu, plus `get` / `set` / `path` / `reset`).
+- `gitowl update` and a daily, non-blocking update notice (opt out with `gitowl config set updateCheck off` or `GITOWL_NO_UPDATE_CHECK=1`). Config files are versioned and migrated automatically.
 
 ### Security
 - Diffs are scanned for API keys, tokens, private keys and hard-coded passwords. Secrets are redacted and files such as `.env` or `*.pem` are never sent to the model; flagged files can be left out of the commit (`--allow-secrets` overrides).
-- `.aicommitignore`: files that are committed but whose content is never sent to the model.
+- `.gitowlignore`: files that are committed but whose content is never sent to the model.
 - Refuses to run during a merge, rebase, cherry-pick or revert.
 - Very large change sets (250+ files) are grouped by folder, tests and lockfiles; monorepo commits are scoped by package.
 

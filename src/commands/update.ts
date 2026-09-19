@@ -24,7 +24,7 @@ export async function runUpdate(opts: { check?: boolean; yes?: boolean }): Promi
     return;
   }
   if (opts.check) {
-    p.outro(`Run ${pc.cyan("aicommit update")} to install ${latest}.`);
+    p.outro(`Run ${pc.cyan("gitowl update")} to install ${latest}.`);
     return;
   }
 

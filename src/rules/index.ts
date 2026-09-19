@@ -15,7 +15,7 @@ const AGENT_FILES = [
 ];
 const CURSOR_RULES_DIR = ".cursor/rules";
 const TEMPLATE_FILE = ".gitmessage";
-const PROJECT_FILE = ".aicommit.json";
+const PROJECT_FILE = ".gitowl.json";
 
 const MAX_TOTAL_CHARS = 6000;
 
@@ -60,7 +60,7 @@ export async function loadRules({ cwd, root, subjects }: LoadRulesOptions): Prom
   const show = (p: string) => relative(root, p).split(sep).join("/") || p;
   const sources: RuleSource[] = [];
 
-  // 1. .aicommit.json (highest priority)
+  // 1. .gitowl.json (highest priority)
   let project: ProjectConfig = {};
   const proj = await findNearest(dirs, PROJECT_FILE);
   if (proj) {

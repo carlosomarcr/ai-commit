@@ -1,5 +1,5 @@
 // Builds a standalone executable (no Node needed) with Node's Single Executable Applications.
-//   pnpm build:binary        -> dist-bin/aicommit[.exe] for the CURRENT platform
+//   pnpm build:binary        -> dist-bin/gitowl[.exe] for the CURRENT platform
 // Cross-compiling isn't possible with SEA; the release workflow runs this on each OS.
 import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { build } from "tsup";
 
 const out = "dist-bin";
-const exe = join(out, process.platform === "win32" ? "aicommit.exe" : "aicommit");
+const exe = join(out, process.platform === "win32" ? "gitowl.exe" : "gitowl");
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 
 rmSync(out, { recursive: true, force: true });
@@ -16,7 +16,7 @@ mkdirSync(out, { recursive: true });
 // 1. One CommonJS file with every dependency inlined. The OS keyring is a native addon that can't
 //    be embedded, so it stays external: the app already falls back to the config file without it.
 await build({
-  entry: { aicommit: "src/cli.ts" },
+  entry: { gitowl: "src/cli.ts" },
   outDir: out,
   format: ["cjs"],
   target: "node20",
@@ -26,13 +26,13 @@ await build({
   shims: true,
   noExternal: [/^(?!@napi-rs)/],
   external: ["@napi-rs/keyring"],
-  define: { __AICOMMIT_PKG__: JSON.stringify({ name: pkg.name, version: pkg.version }) },
+  define: { __GITOWL_PKG__: JSON.stringify({ name: pkg.name, version: pkg.version }) },
   silent: true,
 });
 
 // 2. SEA blob + a copy of the running node binary with the blob injected.
 const config = join(out, "sea-config.json");
-writeFileSync(config, JSON.stringify({ main: join(out, "aicommit.cjs"), output: join(out, "sea.blob"), disableExperimentalSEAWarning: true }));
+writeFileSync(config, JSON.stringify({ main: join(out, "gitowl.cjs"), output: join(out, "sea.blob"), disableExperimentalSEAWarning: true }));
 execFileSync(process.execPath, ["--experimental-sea-config", config], { stdio: "inherit" });
 copyFileSync(process.execPath, exe);
 

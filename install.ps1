@@ -1,14 +1,14 @@
-# aicommit installer for Windows (PowerShell 5.1+).
+# gitowl installer for Windows (PowerShell 5.1+).
 #   irm <url>/install.ps1 | iex
-# Optional: $env:AICOMMIT_PACKAGE (default aicommit-cli), $env:AICOMMIT_NO_INIT = "1" to skip the wizard.
+# Optional: $env:GITOWL_PACKAGE (default gitowl), $env:GITOWL_NO_INIT = "1" to skip the wizard.
 $ErrorActionPreference = "Stop"
 
-$package = if ($env:AICOMMIT_PACKAGE) { $env:AICOMMIT_PACKAGE } else { "aicommit-cli" }
+$package = if ($env:GITOWL_PACKAGE) { $env:GITOWL_PACKAGE } else { "gitowl" }
 
 function Say($msg)  { Write-Host "==> $msg" -ForegroundColor Magenta }
 function Fail($msg) { Write-Host "ERROR: $msg" -ForegroundColor Red; exit 1 }
 
-Say "Installing aicommit"
+Say "Installing gitowl"
 
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
   Fail "git is not installed. Install it first: winget install Git.Git"
@@ -33,15 +33,15 @@ if ($LASTEXITCODE -ne 0) { Fail "The package manager failed to install $package.
 
 # A fresh global install may not be on this session's PATH yet.
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
-if (-not (Get-Command aicommit -ErrorAction SilentlyContinue)) {
-  Write-Host "WARNING: Installed, but 'aicommit' is not on your PATH yet. Open a new terminal." -ForegroundColor Yellow
+if (-not (Get-Command gitowl -ErrorAction SilentlyContinue)) {
+  Write-Host "WARNING: Installed, but 'gitowl' is not on your PATH yet. Open a new terminal." -ForegroundColor Yellow
   exit 0
 }
 
-Say "Installed $(aicommit --version)"
-if ($env:AICOMMIT_NO_INIT -ne "1") {
+Say "Installed $(gitowl --version)"
+if ($env:GITOWL_NO_INIT -ne "1") {
   Say "Starting setup"
-  aicommit init
+  gitowl init
 } else {
-  Say "Run 'aicommit init' to finish setup."
+  Say "Run 'gitowl init' to finish setup."
 }

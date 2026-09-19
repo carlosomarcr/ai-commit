@@ -46,7 +46,7 @@ export async function fetchLatest(name: string, timeoutMs = 1500): Promise<strin
   }
 }
 
-/** Force-checks now and refreshes the cache. Used by `aicommit update`. */
+/** Force-checks now and refreshes the cache. Used by `gitowl update`. */
 export async function checkNow(timeoutMs = 5000): Promise<{ current: string; latest: string | null; newer: boolean }> {
   const { name, version } = readPackageInfo();
   const latest = await fetchLatest(name, timeoutMs);
@@ -56,7 +56,7 @@ export async function checkNow(timeoutMs = 5000): Promise<{ current: string; lat
 
 function envDisabled(): boolean {
   return Boolean(
-    process.env.AICOMMIT_NO_UPDATE_CHECK || process.env.NO_UPDATE_NOTIFIER || process.env.CI || !process.stdout.isTTY,
+    process.env.GITOWL_NO_UPDATE_CHECK || process.env.NO_UPDATE_NOTIFIER || process.env.CI || !process.stdout.isTTY,
   );
 }
 
@@ -80,7 +80,7 @@ export function scheduleUpdateNotice(): void {
     const next: UpdateState = { ...state, lastRunVersion: version };
 
     if (state.lastRunVersion && isNewer(version, state.lastRunVersion)) {
-      notes.push(`\n  ✔ aicommit updated ${state.lastRunVersion} → ${version}  (see CHANGELOG.md)\n`);
+      notes.push(`\n  ✔ gitowl updated ${state.lastRunVersion} → ${version}  (see CHANGELOG.md)\n`);
     }
 
     let latest = state.latest;
@@ -90,7 +90,7 @@ export function scheduleUpdateNotice(): void {
       next.latest = latest;
     }
     if (latest && isNewer(latest, version)) {
-      notes.push(`\n  ⬆ Update available ${version} → ${latest}. Run \`aicommit update\`\n`);
+      notes.push(`\n  ⬆ Update available ${version} → ${latest}. Run \`gitowl update\`\n`);
     }
     if (next.lastRunVersion !== state.lastRunVersion || next.checkedAt !== state.checkedAt) {
       await writeState(next);

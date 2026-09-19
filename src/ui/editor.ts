@@ -20,7 +20,7 @@ export function stripComments(text: string): string {
  * message and returns the edited text, or null when the editor failed or the text came back empty.
  */
 export async function editInEditor(initial: string): Promise<string | null> {
-  const dir = await mkdtemp(join(tmpdir(), "aicommit-"));
+  const dir = await mkdtemp(join(tmpdir(), "gitowl-"));
   const file = join(dir, "COMMIT_EDITMSG");
   try {
     await writeFile(file, initial + "\n" + HELP);

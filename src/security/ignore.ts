@@ -47,10 +47,10 @@ export function compileIgnore(content: string): IgnoreMatcher {
   };
 }
 
-/** Loads `.aicommitignore` from the repo root (files listed there are committed but never shown to the AI). */
+/** Loads `.gitowlignore` from the repo root (files listed there are committed but never shown to the AI). */
 export async function loadIgnore(root: string): Promise<IgnoreMatcher> {
   try {
-    return compileIgnore(await readFile(join(root, ".aicommitignore"), "utf8"));
+    return compileIgnore(await readFile(join(root, ".gitowlignore"), "utf8"));
   } catch {
     return () => false;
   }
