@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3.001
+
+<!-- gitowl:5be8167 -->
+
+- Fix: CLI now correctly parses `--push` and `--no-push` flags
+
 ## 0.1.3
 
 <!-- gitowl:460b559 -->

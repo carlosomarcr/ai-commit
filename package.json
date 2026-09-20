@@ -1,6 +1,6 @@
 {
   "name": "@carlosomarcr/gitowl",
-  "version": "0.1.3",
+  "version": "0.1.3.001",
   "description": "AI-powered git commits with smart grouping, project rules and multi-provider support",
   "type": "module",
   "bin": {
