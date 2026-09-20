@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gitowl – AI git commits that group your changes and follow your rules</title>
+<meta name="description" content="gitowl splits your changes into logical commits, writes the messages following your project's own rules, and always asks before committing or pushing. Works with Ollama, Claude, Gemini, OpenAI, DeepSeek and more.">
+<meta name="theme-color" content="#0b0d12">
+<link rel="canonical" href="https://carlosomarcr.github.io/gitowl/">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:title" content="gitowl – commits that make sense">
+<meta property="og:description" content="AI-written git commits that group your changes, follow your project's rules, and always ask before committing or pushing.">
+<meta property="og:url" content="https://carlosomarcr.github.io/gitowl/">
+<meta name="twitter:card" content="summary">
+<script>document.documentElement.classList.add("js")</script>
+<link rel="stylesheet" href="style.css">
+<script defer src="main.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div id="top" aria-hidden="true"></div>
+
+<header class="nav" id="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top" aria-label="gitowl home"><span class="owl">🦉</span> gitowl</a>
+    <nav aria-label="Main">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#install">Install</a>
+      <a href="#commands">Commands</a>
+    </nav>
+    <a class="btn btn-sm btn-ghost" href="https://github.com/carlosomarcr/gitowl" rel="noopener">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.22 1.88.87 2.34.66.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.83-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- HERO -->
+<section class="hero">
+  <div class="glow g1" aria-hidden="true"></div>
+  <div class="glow g2" aria-hidden="true"></div>
+  <div class="wrap hero-in">
+    <div class="hero-copy">
+      <p class="pill"><span class="dot"></span> Open source · MIT · <span id="ver">v0.1.4</span></p>
+      <h1>Commits that <span class="grad">make sense.</span></h1>
+      <p class="lead">gitowl reads your changes, <strong>groups them into logical commits</strong>, writes the messages following <strong>your project's own rules</strong>, and <strong>always asks</strong> before committing or pushing.</p>
+      <div class="install-box">
+        <code>npm install -g @carlosomarcr/gitowl</code>
+        <button class="copy" data-copy="npm install -g @carlosomarcr/gitowl" aria-label="Copy install command">Copy</button>
+      </div>
+      <div class="cta">
+        <a class="btn btn-primary" href="#install">Get started</a>
+        <a class="btn btn-ghost" href="https://github.com/carlosomarcr/gitowl" rel="noopener">View on GitHub</a>
+      </div>
+      <p class="fine">Works with <b>Ollama</b> (fully local), <b>Claude</b>, <b>Gemini</b>, <b>OpenAI</b>, <b>DeepSeek</b>, <b>Groq</b>, <b>OpenRouter</b> and any OpenAI-compatible endpoint.</p>
+    </div>
+
+    <div class="term" id="term" role="img" aria-label="Terminal showing gitowl splitting seven changed files into three commits">
+      <div class="term-bar">
+        <i></i><i></i><i></i>
+        <span>~/my-repo — gitowl</span>
+        <button class="replay" id="replay" aria-label="Replay animation" title="Replay">↻</button>
+      </div>
+      <pre class="term-body" aria-hidden="true"><span class="ln"><b class="c-p">$</b> <span id="typed" data-text="gitowl">gitowl</span><i class="caret"></i></span>
+<span class="ln"><b class="c-a">◇</b>  Changes <em>(7)</em></span>
+<span class="ln"><b class="c-a">◇</b>  Rules applied  <em>CLAUDE.md §Commits · commitlint.config.js</em></span>
+<span class="ln"><b class="c-a">◇</b>  Planning commits</span>
+<span class="ln"> </span>
+<span class="ln"><b class="c-g">1/3</b>  <b>refactor(auth): extract token parsing</b></span>
+<span class="ln">     <em>↳ groundwork for the new login flow</em></span>
+<span class="ln">     <span class="c-y">M</span> src/auth/token.ts  <span class="c-g">+18</span> <span class="c-r">-9</span></span>
+<span class="ln">     <span class="c-g">A</span> src/auth/parse.ts  <span class="c-g">+31</span> <span class="c-r">-0</span></span>
+<span class="ln"><b class="c-g">2/3</b>  <b>feat(auth): add passwordless login</b></span>
+<span class="ln">     <span class="c-y">M</span> src/auth/login.ts  <em>hunks 1,2</em>  <span class="c-g">+44</span> <span class="c-r">-6</span></span>
+<span class="ln">     <span class="c-g">A</span> src/auth/login.test.ts  <span class="c-g">+52</span></span>
+<span class="ln"><b class="c-g">3/3</b>  <b>build: bump zod</b></span>
+<span class="ln">     <span class="c-y">M</span> package.json  <span class="c-g">+1</span> <span class="c-r">-1</span></span>
+<span class="ln"> </span>
+<span class="ln"><b class="c-p">?</b>  What now?</span>
+<span class="ln">   <b class="c-a">●</b> Commit all 3 in order</span>
+<span class="ln"><b class="c-g">✔</b>  Created 3 commits</span>
+<span class="ln"><b class="c-p">?</b>  Push to <span class="c-a">origin/feat/login</span>? <em>(Y/n)</em></span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- WHY -->
+<section class="strip">
+  <div class="wrap strip-in">
+    <div class="stat rv"><b>1</b><span>coherent commit per idea, not one giant blob</span></div>
+    <div class="stat rv"><b>0</b><span>secrets sent to a model: redacted first</span></div>
+    <div class="stat rv"><b>100%</b><span>local if you use Ollama</span></div>
+    <div class="stat rv"><b>2</b><span>names, same tool: <code>gitowl</code> and <code>owl</code></span></div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features" class="sec">
+  <div class="wrap">
+    <p class="eyebrow rv">Features</p>
+    <h2 class="rv">Everything a good commit history needs</h2>
+    <p class="sub rv">Stop writing "fix stuff" or shipping 40 files in one commit. gitowl does the tedious part and leaves the decisions to you.</p>
+
+    <div class="grid">
+      <article class="card rv">
+        <div class="ico">🧩</div>
+        <h3>Smart grouping</h3>
+        <p>Code goes with its tests, manifests with lockfiles, docs, CI and dependency bumps stay apart. Ordered so each commit builds on the previous one.</p>
+      </article>
+      <article class="card rv">
+        <div class="ico">📏</div>
+        <h3>Follows your rules</h3>
+        <p>Reads <code>AGENTS.md</code>, <code>CLAUDE.md</code>, <code>CONTRIBUTING.md</code>, commitlint, Cursor and Copilot rules, and learns from your last 30 commits.</p>
+      </article>
+      <article class="card rv">
+        <div class="ico">🎛️</div>
+        <h3>You stay in control</h3>
+        <p>Edit a title or the full message, regenerate, move files between commits, split, merge or skip. Nothing happens until you confirm.</p>
+      </article>
+      <article class="card rv">
+        <div class="ico">✂️</div>
+        <h3>Hunk-level splitting</h3>
+        <p>A feature and an unrelated typo fix in the same file? <code>--hunks</code> sends them to different commits, only when it can prove the result is byte-identical.</p>
+      </article>
+      <article class="card rv">
+        <div class="ico">🔒</div>
+        <h3>Secrets never leave</h3>
+        <p>API keys, tokens and private keys are redacted before anything is sent to a model. <code>.env</code> and <code>*.pem</code> files are never sent at all.</p>
+      </article>
+      <article class="card rv">
+        <div class="ico">📝</div>
+        <h3>Changelog in seconds</h3>
+        <p><code>gitowl changelog</code> builds release notes from your history without reading diffs, extends existing sections and copies your file's style.</p>
+      </article>
+      <article class="card rv">
+        <div class="ico">🤖</div>
+        <h3>Any model</h3>
+        <p>Ollama, DeepSeek, Claude, Gemini, OpenAI, Groq, OpenRouter or any OpenAI-compatible URL. If a model fails you can switch on the spot.</p>
+      </article>
+      <article class="card rv">
+        <div class="ico">🛡️</div>
+        <h3>Safe by design</h3>
+        <p>Your working tree is never touched, hooks run normally, and it never force-pushes or pushes a branch that is behind its remote.</p>
+      </article>
+      <article class="card rv">
+        <div class="ico">🩺</div>
+        <h3>Built-in doctor</h3>
+        <p><code>gitowl doctor</code> checks git, provider, key, model and rules, then tells you exactly how to fix whatever is off.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- HOW -->
+<section id="how" class="sec alt">
+  <div class="wrap">
+    <p class="eyebrow rv">How it works</p>
+    <h2 class="rv">From messy working tree to clean history</h2>
+    <ol class="steps">
+      <li class="rv"><span class="n">1</span><div><h3>Scope</h3><p>Staged files only, or everything if nothing is staged. <code>--all</code> forces it.</p></div></li>
+      <li class="rv"><span class="n">2</span><div><h3>Plan</h3><p>The model splits the changes into commits. Every file is placed exactly once; anything it forgets is placed by folder and you are told.</p></div></li>
+      <li class="rv"><span class="n">3</span><div><h3>Review</h3><p>Edit, regenerate, move files, split, merge, skip, or ask for a new plan with guidance like "keep docs separate".</p></div></li>
+      <li class="rv"><span class="n">4</span><div><h3>Commit</h3><p>Each commit contains exactly its files. If a hook fails, retry, skip that commit or stop. Ctrl+C restores your staging.</p></div></li>
+      <li class="rv"><span class="n">5</span><div><h3>Push</h3><p>Ask, always or never, your choice. It shows the target, sets the upstream and warns you on <code>main</code>.</p></div></li>
+    </ol>
+  </div>
+</section>
+
+<!-- RULES -->
+<section class="sec">
+  <div class="wrap split">
+    <div>
+      <p class="eyebrow rv">Your conventions</p>
+      <h2 class="rv">It already knows how your team writes commits</h2>
+      <p class="sub rv">gitowl reads the rules that already live in your repo, nearest file wins, which is great for monorepos. Only the commit-related sections are extracted.</p>
+      <div class="chips rv">
+        <span>AGENTS.md</span><span>CLAUDE.md</span><span>GEMINI.md</span><span>.cursorrules</span><span>.cursor/rules/*</span><span>copilot-instructions.md</span><span>CONTRIBUTING.md</span><span>.gitmessage</span><span>commitlint</span>
+      </div>
+    </div>
+    <div class="code rv">
+      <div class="code-bar"><span>.gitowl.json</span><button class="copy" data-copy='{ "language": "es", "style": "conventional", "types": ["feat", "fix", "chore"], "scopes": ["api", "web"], "maxHeaderLength": 72, "instructions": "Mention the ticket id." }'>Copy</button></div>
+<pre><code>{
+  <i class="k">"language"</i>: <i class="s">"es"</i>,
+  <i class="k">"style"</i>: <i class="s">"conventional"</i>,
+  <i class="k">"types"</i>: [<i class="s">"feat"</i>, <i class="s">"fix"</i>, <i class="s">"chore"</i>],
+  <i class="k">"scopes"</i>: [<i class="s">"api"</i>, <i class="s">"web"</i>],
+  <i class="k">"maxHeaderLength"</i>: <i class="num">72</i>,
+  <i class="k">"instructions"</i>: <i class="s">"Mention the ticket id."</i>
+}</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- CHANGELOG -->
+<section class="sec alt">
+  <div class="wrap split rev">
+    <div class="code rv">
+      <div class="code-bar"><span>terminal</span></div>
+<pre><code><i class="c">$</i> gitowl changelog
+<i class="c"># preview, confirm, write</i>
+
+<i class="c">$</i> gitowl changelog --dry-run
+<i class="c">$</i> gitowl changelog --release 1.4.0
+<i class="c">$</i> gitowl changelog --from v1.0.0 --to v1.2.0
+<i class="c">$</i> gitowl changelog --no-ai -y   <i class="c"># CI friendly</i></code></pre>
+    </div>
+    <div>
+      <p class="eyebrow rv">Changelog</p>
+      <h2 class="rv">Release notes without the busywork</h2>
+      <ul class="ticks rv">
+        <li>Creates or updates <code>CHANGELOG.md</code>. Existing entries are never rewritten.</li>
+        <li>Finds missing releases from your tags, and extends the current section instead of replacing it.</li>
+        <li>Copies your file's style: flat or grouped, with or without brackets and dates.</li>
+        <li>Filters noise: merges, bumps, <code>docs</code>, <code>test</code>, <code>chore</code>, <code>ci</code>. Breaking changes are always kept.</li>
+        <li>AI is optional: <code>--no-ai</code> never calls a model.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- PROVIDERS -->
+<section class="sec tight">
+  <div class="wrap">
+    <p class="eyebrow center rv">Bring your own model</p>
+    <h2 class="center rv">Run it locally or with the provider you already use</h2>
+  </div>
+  <div class="marquee" aria-label="Supported providers">
+    <div class="track">
+      <span>Ollama</span><span>DeepSeek</span><span>Claude</span><span>Gemini</span><span>OpenAI</span><span>Groq</span><span>OpenRouter</span><span>LM Studio</span><span>vLLM</span><span>Any OpenAI-compatible API</span>
+      <span aria-hidden="true">Ollama</span><span aria-hidden="true">DeepSeek</span><span aria-hidden="true">Claude</span><span aria-hidden="true">Gemini</span><span aria-hidden="true">OpenAI</span><span aria-hidden="true">Groq</span><span aria-hidden="true">OpenRouter</span><span aria-hidden="true">LM Studio</span><span aria-hidden="true">vLLM</span><span aria-hidden="true">Any OpenAI-compatible API</span>
+    </div>
+  </div>
+  <div class="wrap">
+    <p class="note rv">API keys live in your system keyring (Windows Credential Manager, macOS Keychain, libsecret), never in the config file. Hosted providers do receive your redacted diffs. For private code, use a local Ollama.</p>
+  </div>
+</section>
+
+<!-- INSTALL -->
+<section id="install" class="sec alt">
+  <div class="wrap narrow">
+    <p class="eyebrow center rv">Install</p>
+    <h2 class="center rv">Up and running in a minute</h2>
+
+    <div class="tabs rv" id="tabs">
+      <div class="tablist" role="tablist" aria-label="Install method">
+        <button role="tab" aria-selected="true" aria-controls="p-npm" id="t-npm">npm / pnpm</button>
+        <button role="tab" aria-selected="false" aria-controls="p-sh" id="t-sh" tabindex="-1">macOS / Linux</button>
+        <button role="tab" aria-selected="false" aria-controls="p-ps" id="t-ps" tabindex="-1">Windows</button>
+      </div>
+      <div class="panel" role="tabpanel" id="p-npm" aria-labelledby="t-npm">
+        <div class="cmd"><code>npm install -g @carlosomarcr/gitowl</code><button class="copy" data-copy="npm install -g @carlosomarcr/gitowl">Copy</button></div>
+        <div class="cmd"><code>pnpm add -g @carlosomarcr/gitowl</code><button class="copy" data-copy="pnpm add -g @carlosomarcr/gitowl">Copy</button></div>
+        <p class="hint">Needs Node 20.19+. Gives you both <code>gitowl</code> and <code>owl</code>.</p>
+      </div>
+      <div class="panel" role="tabpanel" id="p-sh" aria-labelledby="t-sh" hidden>
+        <div class="cmd"><code>curl -fsSL https://raw.githubusercontent.com/carlosomarcr/gitowl/main/install.sh | sh</code><button class="copy" data-copy="curl -fsSL https://raw.githubusercontent.com/carlosomarcr/gitowl/main/install.sh | sh">Copy</button></div>
+        <p class="hint">Also runs the setup wizard.</p>
+      </div>
+      <div class="panel" role="tabpanel" id="p-ps" aria-labelledby="t-ps" hidden>
+        <div class="cmd"><code>irm https://raw.githubusercontent.com/carlosomarcr/gitowl/main/install.ps1 | iex</code><button class="copy" data-copy="irm https://raw.githubusercontent.com/carlosomarcr/gitowl/main/install.ps1 | iex">Copy</button></div>
+        <p class="hint">PowerShell. Also runs the setup wizard.</p>
+      </div>
+    </div>
+
+    <p class="center alt-dl rv">Prefer no Node? Grab a standalone binary for Windows, macOS or Linux from the <a href="https://github.com/carlosomarcr/gitowl/releases" rel="noopener">releases page</a>.</p>
+
+    <div class="qs rv">
+      <div class="cmd"><code><i class="c">$</i> gitowl init   <i class="c"># wizard: provider, model, preferences</i></code></div>
+      <div class="cmd"><code><i class="c">$</i> cd my-repo &amp;&amp; gitowl</code></div>
+    </div>
+  </div>
+</section>
+
+<!-- COMMANDS -->
+<section id="commands" class="sec">
+  <div class="wrap narrow">
+    <p class="eyebrow center rv">Reference</p>
+    <h2 class="center rv">Commands and flags</h2>
+    <div class="tbl rv" role="table" aria-label="Commands">
+      <div role="row"><code role="cell">gitowl</code><span role="cell">Plan, review, commit, push</span></div>
+      <div role="row"><code role="cell">gitowl init</code><span role="cell">Setup wizard</span></div>
+      <div role="row"><code role="cell">gitowl config</code><span role="cell">Menu, or <code>get | set | path | reset</code></span></div>
+      <div role="row"><code role="cell">gitowl doctor</code><span role="cell">Diagnose your setup (<code>--deep</code> runs a real test)</span></div>
+      <div role="row"><code role="cell">gitowl rules</code><span role="cell">Show the rules found for this project</span></div>
+      <div role="row"><code role="cell">gitowl changelog</code><span role="cell">Generate or update CHANGELOG.md</span></div>
+      <div role="row"><code role="cell">gitowl update</code><span role="cell">Update to the latest version</span></div>
+    </div>
+    <div class="flags rv">
+      <code>-a, --all</code><code>--single</code><code>--hunks</code><code>--dry-run</code><code>-y, --yes</code><code>--allow-secrets</code><code>--push</code><code>--no-push</code><code>--provider</code><code>--model</code><code>--lang</code><code>-i, --instructions</code>
+    </div>
+    <p class="note center rv"><code>owl</code> works everywhere <code>gitowl</code> does. Full docs in the <a href="https://github.com/carlosomarcr/gitowl#readme" rel="noopener">README</a>.</p>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="final">
+  <div class="glow g1" aria-hidden="true"></div>
+  <div class="wrap center">
+    <div class="big-owl rv">🦉</div>
+    <h2 class="rv">Give your git history some wisdom</h2>
+    <p class="sub rv">Free, open source and private by default.</p>
+    <div class="install-box rv">
+      <code>npm install -g @carlosomarcr/gitowl</code>
+      <button class="copy" data-copy="npm install -g @carlosomarcr/gitowl" aria-label="Copy install command">Copy</button>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <span>🦉 gitowl · MIT License</span>
+    <nav aria-label="Footer">
+      <a href="https://github.com/carlosomarcr/gitowl" rel="noopener">GitHub</a>
+      <a href="https://www.npmjs.com/package/@carlosomarcr/gitowl" rel="noopener">npm</a>
+      <a href="https://github.com/carlosomarcr/gitowl/releases" rel="noopener">Releases</a>
+      <a href="https://github.com/carlosomarcr/gitowl/blob/main/CHANGELOG.md" rel="noopener">Changelog</a>
+      <a href="https://github.com/carlosomarcr/gitowl/issues" rel="noopener">Issues</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>
