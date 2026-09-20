@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPrompt, extractJson, formatMessage, generateMessage, validateMessage } from "../src/commit/generate.js";
+import { buildPrompt, cleanTitle, extractJson, formatMessage, generateMessage, validateMessage } from "../src/commit/generate.js";
 import type { Provider } from "../src/providers/types.js";
 import type { ProjectRules } from "../src/rules/types.js";
 
@@ -74,5 +74,27 @@ describe("buildPrompt", () => {
     const { system } = buildPrompt({ ...base, provider: mock([]), rules: rules({ style: "free", text: "### From CLAUDE.md\nNever use emojis in commits" }) });
     expect(system).toContain("Never use emojis in commits");
     expect(system).toContain("does NOT use conventional commits");
+  });
+});
+
+describe("duplicated prefix in title", () => {
+  it("never repeats type(scope) inside the header", () => {
+    const m = { type: "feat", scope: "git", title: "feat(git): add lock retry" };
+    expect(formatMessage(m)).toBe("feat(git): add lock retry");
+  });
+
+  it("strips repeated or mismatched conventional prefixes, keeps the body", () => {
+    expect(formatMessage({ type: "fix", scope: "ui", title: "fix(ui): fix(ui): tidy panel", body: "why" })).toBe("fix(ui): tidy panel\n\nwhy");
+    expect(formatMessage({ type: "feat", scope: null, title: "fix: handle empty input" })).toBe("feat: handle empty input");
+  });
+
+  it("leaves normal titles and free style alone", () => {
+    expect(cleanTitle({ type: "feat", scope: "x", title: "Note: keep this" })).toBe("Note: keep this");
+    expect(formatMessage({ type: null, scope: null, title: "feat: whatever the project wants" })).toBe("feat: whatever the project wants");
+  });
+
+  it("validates length on the cleaned header", () => {
+    const rules = { style: "conventional", maxHeaderLength: 30 } as ProjectRules;
+    expect(validateMessage({ type: "feat", scope: "git", title: "feat(git): add retry" }, rules)).toEqual([]);
   });
 });

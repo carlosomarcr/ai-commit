@@ -23,8 +23,28 @@ export interface GenerateInput {
 
 const MAX_DIFF_CHARS = 24_000;
 
+/**
+ * Models sometimes repeat the prefix inside `title` ("feat(git): fix x" with type "feat", scope "git").
+ * Drops any leading "word(scope)!: " groups so the header never ends up as "feat(git): feat(git): x".
+ * Only applies when `type` is set; in free style the whole first line is the title.
+ */
+const KNOWN_TYPES = ["feat", "fix", "refactor", "docs", "test", "tests", "chore", "style", "perf", "build", "ci", "revert"];
+
+export function cleanTitle(m: CommitMessage): string {
+  const title = m.title.trim();
+  if (!m.type) return title;
+  const types = [...new Set([...KNOWN_TYPES, m.type.toLowerCase()])].map((t) => t.replace(/[^\w-]/g, "")).join("|");
+  const prefix = new RegExp(`^(?:${types})(?:\\([^)\\n]*\\))?!?:\\s+`, "i");
+  let out = title;
+  for (;;) {
+    const stripped = out.replace(prefix, "");
+    if (stripped === out || !stripped) return out;
+    out = stripped;
+  }
+}
+
 export function header(m: CommitMessage): string {
-  return m.type ? `${m.type}${m.scope ? `(${m.scope})` : ""}: ${m.title}` : m.title;
+  return m.type ? `${m.type}${m.scope ? `(${m.scope})` : ""}: ${cleanTitle(m)}` : m.title;
 }
 
 export function formatMessage(m: CommitMessage): string {

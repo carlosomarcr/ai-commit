@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3
+
+- Fix: gitowl no longer fails with `Unable to create .git/index.lock: File exists` when an editor, hook or another git process briefly holds the lock. Git commands are retried with a short backoff, and read-only commands skip optional locks.
+- Fix: if restoring your staging area fails after the commits were created, gitowl now reports it as a warning instead of a fatal error (the commits are already made).
+- Fix: commit headers no longer repeat the prefix (`feat(git): feat(git): …`) when the model also includes `type(scope):` inside the title. The duplicate is stripped wherever a header is built.
+- Clearer error when `.git/index.lock` stays locked, explaining what may be holding it.
+
 ## 0.1.2
 
 - Fix: `gitowl update` now installs the exact version it found in the registry, so pnpm no longer reinstalls the old version from its metadata cache right after a release.
