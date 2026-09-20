@@ -2,8 +2,11 @@
 
 ## 0.1.3
 
+<!-- gitowl:460b559 -->
+
 - Git commands now retry with exponential back‑off when `.git/index.lock` is held and cleanup errors are reported with clear guidance
 - Fix: Duplicate type(scope) prefixes are removed from generated commit headers
+- Added: `gitowl changelog` command to generate full changelogs with AI summarization, commit parsing, release planning and merge support that preserves existing sections and updates markers
 
 ## 0.1.2
 
