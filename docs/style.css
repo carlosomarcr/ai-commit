@@ -41,7 +41,8 @@ p{margin:0}
 .nav-in{display:flex;align-items:center;gap:28px;height:64px}
 .brand{font-weight:700;font-size:1.15rem;color:var(--tx);display:flex;align-items:center;gap:8px;letter-spacing:-.02em}
 .brand:hover{text-decoration:none}
-.owl{display:inline-block;animation:blink 6s infinite}
+.logo{display:inline-block;vertical-align:middle;object-fit:contain}
+.owl-fb{display:none}
 .nav nav{display:flex;gap:22px;margin-left:auto}
 .nav nav a{color:var(--mut);font-size:.94rem;transition:color .2s}
 .nav nav a:hover{color:var(--tx);text-decoration:none}
@@ -185,7 +186,8 @@ pre code{background:none;padding:0;font-size:inherit;border-radius:0}
 .final .sub{margin-inline:auto;margin-bottom:30px}
 .final h2{margin-inline:auto}
 .final .install-box{margin-inline:auto}
-.big-owl{font-size:4rem;margin-bottom:12px;display:inline-block;animation:bob 3.4s ease-in-out infinite}
+.big-owl{margin-bottom:8px;display:block;line-height:0}
+.big-owl .owl-fb{font-size:4rem;line-height:1}
 .foot{border-top:1px solid var(--line);padding:30px 0;color:var(--dim);font-size:.9rem}
 .foot-in{display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px}
 .foot nav{display:flex;flex-wrap:wrap;gap:20px}
@@ -201,8 +203,8 @@ pre code{background:none;padding:0;font-size:inherit;border-radius:0}
 @keyframes pulse{70%{box-shadow:0 0 0 9px transparent}100%{box-shadow:0 0 0 0 transparent}}
 @keyframes caret{50%{opacity:0}}
 @keyframes scroll{to{transform:translateX(calc(-50% - 7px))}}
-@keyframes bob{50%{transform:translateY(-10px) rotate(-4deg)}}
-@keyframes blink{0%,94%,100%{transform:scaleY(1)}97%{transform:scaleY(.1)}}
+
+
 
 /* RESPONSIVE */
 @media (max-width:960px){
@@ -227,6 +229,8 @@ pre code{background:none;padding:0;font-size:inherit;border-radius:0}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
   .js .rv,.js .term .ln{opacity:1!important;transform:none!important}
+  .logo{display:none}
+  .owl-fb{display:inline}
   .track{width:auto;flex-wrap:wrap;justify-content:center}
   .track span[aria-hidden]{display:none}
 }
