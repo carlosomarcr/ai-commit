@@ -180,3 +180,32 @@ describe("executePlan", () => {
     expect(empties).toEqual(["g2"]);
   });
 });
+
+describe("index.lock contention", () => {
+  it("retries while another process holds the lock, then succeeds", async () => {
+    await write("a.ts", "a1\n");
+    const lock = join(dir, ".git", "index.lock");
+    await writeFile(lock, "");
+    setTimeout(() => void rm(lock, { force: true }), 300);
+    await expect(git.stageAll()).resolves.toBeUndefined();
+    expect((await git.status()).map((f) => f.path)).toEqual(["a.ts"]);
+  });
+
+  it("gives a helpful error when the lock never goes away", async () => {
+    await write("a.ts", "a1\n");
+    await writeFile(join(dir, ".git", "index.lock"), "");
+    await expect(git.stageAll()).rejects.toThrow(/holding \.git\/index\.lock/);
+  }, 15000);
+
+  it("reports a failing final cleanup instead of throwing", async () => {
+    await write("a.ts", "a1\n");
+    const ctx = await prepare();
+    const hooks: ExecuteHooks = {
+      ...noFail,
+      onCommitted: () => void writeFile(join(dir, ".git", "index.lock"), ""),
+    };
+    const result = await executePlan([group("g1", ["a.ts"])], ctx, hooks);
+    expect(result.committed).toHaveLength(1);
+    expect(result.cleanupError).toMatch(/index\.lock/);
+  }, 15000);
+});

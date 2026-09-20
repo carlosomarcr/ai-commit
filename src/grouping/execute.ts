@@ -33,6 +33,8 @@ export interface ExecuteResult {
   committed: { group: CommitGroup; hash: string }[];
   skipped: CommitGroup[];
   aborted: boolean;
+  /** Set when the commits succeeded but putting the index back afterwards failed. */
+  cleanupError?: string;
 }
 
 /** A group's units split into whole files (with the old side of renames) and hunks per file. */
@@ -128,7 +130,12 @@ export async function executePlan(groups: CommitGroup[], ctx: ExecuteContext, ho
     }
   }
 
-  await git.resetIndexToHead();
-  if (ctx.restoreSkipped) await restore([...result.skipped, ...(ctx.leftover ?? [])], tree);
+  // The commits already exist at this point, so a failure here must not look like a failed run.
+  try {
+    await git.resetIndexToHead();
+    if (ctx.restoreSkipped) await restore([...result.skipped, ...(ctx.leftover ?? [])], tree);
+  } catch (err) {
+    result.cleanupError = err instanceof Error ? err.message : String(err);
+  }
   return result;
 }

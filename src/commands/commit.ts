@@ -276,6 +276,12 @@ export async function runCommit(opts: CommitOptions): Promise<void> {
   guard.dispose();
   const leftFiles = [...result.skipped, ...leftover].reduce((n, g) => n + g.files.length, 0);
   if (leftFiles > 0) p.log.info(`${leftFiles} file(s) were left uncommitted.`);
+  if (result.cleanupError) {
+    p.log.warn(
+      `Commits were created, but restoring your staging area failed:\n${result.cleanupError}\n` +
+        "Your working tree is untouched; run `git status` to check what is staged.",
+    );
+  }
   if (result.aborted) {
     p.outro(pc.yellow(`Stopped after ${result.committed.length} commit(s).`));
     process.exit(1);

@@ -12,12 +12,53 @@ export interface ChangedFile {
 
 export class GitError extends Error {}
 
-async function git(args: string[], opts: { cwd?: string; reject?: boolean } = {}) {
+const LOCK_RETRY_DELAYS_MS = [50, 100, 200, 400, 800, 1200];
+
+const isLockError = (text: string) => /index\.lock|Unable to create '.*\.lock'/i.test(text);
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Another git process (an IDE refreshing its status, a hook, an antivirus scan) can hold
+ * `.git/index.lock` for a few milliseconds. git fails before doing any work in that case, so
+ * retrying with a short backoff is always safe.
+ */
+async function withLockRetry<T extends { exitCode?: number; stderr?: unknown }>(run: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    const delay = LOCK_RETRY_DELAYS_MS[attempt];
+    try {
+      const r = await run();
+      if (r.exitCode === 0 || delay === undefined || !isLockError(String(r.stderr ?? ""))) return r;
+    } catch (err) {
+      const e = err as { stderr?: string; message?: string };
+      if (delay === undefined || !isLockError(`${e.stderr ?? ""}\n${e.message ?? ""}`)) throw err;
+    }
+    await sleep(delay);
+  }
+}
+
+const LOCK_HINT =
+  "\nAnother git process is holding .git/index.lock (an editor, a git hook or another terminal). " +
+  "Wait a moment and try again; if nothing else is running git, delete .git/index.lock.";
+
+function toGitError(err: unknown): GitError {
+  const e = err as { stderr?: string; message: string };
+  const text = (e.stderr || e.message).trim();
+  return new GitError(isLockError(text) ? text + LOCK_HINT : text);
+}
+
+/** `readOnly` commands skip optional locks so they never fight other tools over the index. */
+async function git(args: string[], opts: { cwd?: string; reject?: boolean; readOnly?: boolean } = {}) {
   try {
-    return await execa("git", args, { cwd: opts.cwd, reject: opts.reject ?? true });
+    return await withLockRetry(() =>
+      execa("git", args, {
+        cwd: opts.cwd,
+        reject: opts.reject ?? true,
+        env: opts.readOnly ? { GIT_OPTIONAL_LOCKS: "0" } : undefined,
+      }),
+    );
   } catch (err) {
-    const e = err as { stderr?: string; message: string };
-    throw new GitError((e.stderr || e.message).trim());
+    throw toGitError(err);
   }
 }
 
@@ -36,7 +77,7 @@ export async function currentBranch(): Promise<string> {
 }
 
 export async function status(): Promise<ChangedFile[]> {
-  const r = await git(["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
+  const r = await git(["status", "--porcelain=v1", "-z", "--untracked-files=all"], { readOnly: true });
   const parts = r.stdout.split("\0").filter(Boolean);
   const files: ChangedFile[] = [];
   for (let i = 0; i < parts.length; i++) {
@@ -62,11 +103,11 @@ export async function stageFiles(paths: string[]): Promise<void> {
 }
 
 export async function stagedDiff(): Promise<string> {
-  return (await git(["diff", "--cached", "--no-color", "--unified=2"])).stdout;
+  return (await git(["diff", "--cached", "--no-color", "--unified=2"], { readOnly: true })).stdout;
 }
 
 export async function stagedStat(): Promise<string> {
-  return (await git(["diff", "--cached", "--no-color", "--stat"])).stdout;
+  return (await git(["diff", "--cached", "--no-color", "--stat"], { readOnly: true })).stdout;
 }
 
 export async function recentSubjects(n = 30): Promise<string[]> {
@@ -77,11 +118,12 @@ export async function recentSubjects(n = 30): Promise<string[]> {
 export async function commit(message: string): Promise<string> {
   // Message goes through stdin so multi-line bodies and quotes are safe on every shell.
   try {
-    await execa("git", ["commit", "-F", "-"], { input: message });
+    await withLockRetry(() => execa("git", ["commit", "-F", "-"], { input: message }));
   } catch (err) {
     const e = err as { stdout?: string; stderr?: string; message: string };
     // Hook failures print to stdout/stderr; surface everything.
-    throw new GitError([e.stdout, e.stderr].filter(Boolean).join("\n").trim() || e.message);
+    const text = [e.stdout, e.stderr].filter(Boolean).join("\n").trim() || e.message;
+    throw new GitError(isLockError(text) ? text + LOCK_HINT : text);
   }
   return (await git(["rev-parse", "--short", "HEAD"])).stdout.trim();
 }
