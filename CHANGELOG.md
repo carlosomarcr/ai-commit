@@ -2,10 +2,8 @@
 
 ## 0.1.3
 
-- Fix: gitowl no longer fails with `Unable to create .git/index.lock: File exists` when an editor, hook or another git process briefly holds the lock. Git commands are retried with a short backoff, and read-only commands skip optional locks.
-- Fix: if restoring your staging area fails after the commits were created, gitowl now reports it as a warning instead of a fatal error (the commits are already made).
-- Fix: commit headers no longer repeat the prefix (`feat(git): feat(git): …`) when the model also includes `type(scope):` inside the title. The duplicate is stripped wherever a header is built.
-- Clearer error when `.git/index.lock` stays locked, explaining what may be holding it.
+- Git commands now retry with exponential back‑off when `.git/index.lock` is held and cleanup errors are reported with clear guidance
+- Fix: Duplicate type(scope) prefixes are removed from generated commit headers
 
 ## 0.1.2
 

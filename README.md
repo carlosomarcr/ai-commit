@@ -83,6 +83,27 @@ Highest priority is an optional `.gitowl.json`:
 
 Messages are validated against `types`, `scopes` and `maxHeaderLength`; violations are fed back to the model and, if they persist, shown as a warning.
 
+## Changelog
+
+`gitowl changelog` (or `owl changelog`) writes release notes from your git history, in a few seconds and without reading any diffs, only commit messages.
+
+- **Creates or updates** `CHANGELOG.md`. Existing content is never rewritten: new sections are inserted in version order, and sections that already exist are left alone, so running it twice changes nothing.
+- **Finds what is missing on its own.** Each tag (`v1.2.3`, `1.2.3`, `pkg@1.2.3`) is a release; tags without a section are added, plus the commits after the last tag. Those get the version in `package.json` if it is not tagged yet, otherwise `Unreleased` (regenerated every time and turned into the release once tagged).
+- **Copies your file's style**: flat list or `### Added / Fixed` groups, `## 1.2.3` or `## [1.2.3]`, with or without dates. A new file uses Keep a Changelog.
+- **Filters noise**: merges, version bumps, release/changelog commits and `docs`, `test`, `chore`, `ci`, `build`, `style` commits are left out (`--all-types` keeps them). Breaking changes are always kept and marked.
+- **AI is optional.** With a provider configured, entries are rewritten for users of the software, related commits merged and internal work dropped; if the model fails, it falls back to your commit messages. `--no-ai` never calls a model.
+
+```
+gitowl changelog                      preview, confirm, write
+gitowl changelog --dry-run            show the result only
+gitowl changelog --release 1.4.0      heading for the untagged commits
+gitowl changelog --from v1.0.0 --to v1.2.0   one explicit range
+gitowl changelog --force              regenerate an existing section
+gitowl changelog --no-ai -y           no model, no prompts (CI friendly)
+```
+
+Other flags: `-o, --output <file>`, `--limit <n>` (missing tagged releases to write, default 10), `--all-types`, `--provider`, `--model`, `--lang`. Link references at the bottom of the file (`[1.0.0]: https://…`) are kept but not updated.
+
 ## Providers
 
 | Provider | Setup | Key |
@@ -115,6 +136,7 @@ gitowl init                 setup wizard
 gitowl config [get|set|path|reset]   menu, or scriptable access
 gitowl doctor [--deep]      diagnose your setup
 gitowl rules                show the rules found for this project
+gitowl changelog            generate or update CHANGELOG.md from git history
 gitowl update [--check]     update to the latest version
 
 -a, --all              include unstaged and untracked files
