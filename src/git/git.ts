@@ -338,3 +338,71 @@ export async function headBlob(path: string): Promise<Buffer | null> {
 export async function hashObject(content: string): Promise<string> {
   return (await execa("git", ["hash-object", "-w", "--stdin"], { input: content })).stdout.trim();
 }
+
+// --- History (used by `gitowl changelog`) ---------------------------------------------------------
+
+export interface LogCommit {
+  hash: string;
+  subject: string;
+  body: string;
+}
+
+export interface TagInfo {
+  name: string;
+  /** Creation date, YYYY-MM-DD. */
+  date: string;
+}
+
+/** Matches tags that look like releases (v1.2.3, 1.2.3, pkg@1.2.3) without fetching every tag. */
+const VERSION_TAG_GLOB = "*[0-9]*.*[0-9]*";
+
+/** All tags, oldest first. */
+export async function tags(): Promise<TagInfo[]> {
+  const r = await git(
+    ["for-each-ref", "--sort=creatordate", "--format=%(refname:short)%09%(creatordate:short)", "refs/tags"],
+    { reject: false, readOnly: true },
+  );
+  return r.stdout
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => {
+      const [name = "", date = ""] = line.split("\t");
+      return { name, date };
+    });
+}
+
+/** Nearest release-like tag reachable from `ref`, or null. */
+export async function nearestTag(ref = "HEAD"): Promise<string | null> {
+  const r = await git(["describe", "--tags", "--abbrev=0", "--match", VERSION_TAG_GLOB, ref], {
+    reject: false,
+    readOnly: true,
+  });
+  return r.exitCode === 0 ? r.stdout.trim() || null : null;
+}
+
+/** The release-like tag before `tag` (null for the first release). */
+export async function previousTag(tag: string): Promise<string | null> {
+  return nearestTag(`${tag}^`);
+}
+
+/** Commits in `from..to` (or everything up to `to` when `from` is null), oldest first, merges excluded. */
+export async function commitsBetween(from: string | null, to: string): Promise<LogCommit[]> {
+  const range = from ? `${from}..${to}` : to;
+  const r = await git(["log", "--no-merges", "--reverse", "--format=%h%x1f%s%x1f%b%x1e", range], {
+    reject: false,
+    readOnly: true,
+  });
+  if (r.exitCode !== 0) throw new GitError(String(r.stderr || `Could not read history for ${range}`).trim());
+  return r.stdout
+    .split("\x1e")
+    .map((rec) => rec.replace(/^\n+/, ""))
+    .filter((rec) => rec.trim())
+    .map((rec) => {
+      const [hash = "", subject = "", body = ""] = rec.split("\x1f");
+      return { hash, subject: subject.trim(), body: body.trim() };
+    });
+}
+
+export async function refExists(ref: string): Promise<boolean> {
+  return (await git(["rev-parse", "--verify", "-q", `${ref}^{commit}`], { reject: false, readOnly: true })).exitCode === 0;
+}
