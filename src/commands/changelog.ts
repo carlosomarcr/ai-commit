@@ -7,11 +7,13 @@ import {
   UNRELEASED,
   detectStyle,
   parseChangelog,
+  renderHeading,
   renderSection,
   serialize,
   upsertSection,
   type Doc,
 } from "../changelog/document.js";
+import { appendItems, isCovered, readMarker, replaceHeading, setMarker } from "../changelog/merge.js";
 import { planTargets, normalizeVersion, type Target } from "../changelog/releases.js";
 import { loadConfig, type Config } from "../config/store.js";
 import * as git from "../git/git.js";
@@ -172,7 +174,7 @@ export async function runChangelog(opts: ChangelogOptions): Promise<void> {
 
   const ai = await setupAi(opts);
   const examples = exampleBullets(doc);
-  const written: { target: Target; text: string; action: "added" | "replaced" }[] = [];
+  const written: { target: Target; text: string; action: "added" | "replaced" | "updated" }[] = [];
 
   for (const target of plan.targets) {
     const label = target.version === UNRELEASED ? "unreleased changes" : target.version;
@@ -182,10 +184,40 @@ export async function runChangelog(opts: ChangelogOptions): Promise<void> {
       continue;
     }
 
-    // An existing section is only rewritten on request; Unreleased is regenerated from history.
-    const has = doc.sections.some((s) => s.version === target.version);
-    if (has && target.version !== UNRELEASED && !opts.force) {
-      p.log.info(pc.dim(`Section ${target.version} already exists, keeping it (use --force to regenerate).`));
+    // The section this run would extend: same version, or the pending "Unreleased" one being released.
+    const existingIdx = doc.sections.findIndex((x) => x.version === target.version);
+    const pendingIdx = target.pending && target.version !== UNRELEASED ? doc.sections.findIndex((x) => x.version === UNRELEASED) : -1;
+    const idx = existingIdx >= 0 ? existingIdx : pendingIdx;
+
+    if (idx >= 0 && !opts.force) {
+      if (!target.pending) {
+        p.log.info(pc.dim(`Section ${target.version} already exists, keeping it (use --force to regenerate).`));
+        continue;
+      }
+      // Pending section already in the file: keep it and add only the commits it does not cover yet.
+      const section = doc.sections[idx]!;
+      const marker = readMarker(section.text);
+      const fresh =
+        marker && (await git.isAncestor(marker, target.to))
+          ? parseCommits(await git.commitsBetween(marker, target.to), { allTypes: opts.allTypes })
+          : commits.filter((c) => !isCovered(c, section.text));
+      const rename = section.version !== target.version;
+      if (fresh.length === 0 && !rename) {
+        p.log.info(pc.dim(`Section ${target.version} already covers every commit.`));
+        continue;
+      }
+
+      const items = fresh.length > 0 ? await buildItems(fresh, ai, examples, label) : [];
+      if (items.length === 0 && !rename) {
+        p.log.info(pc.dim(`Nothing user-facing in the ${fresh.length} new commit(s).`));
+        continue;
+      }
+      let text = rename ? replaceHeading(section.text, renderHeading(target.version, target.date, style)) : section.text;
+      const appended = appendItems(text, items, style.grouped);
+      text = setMarker(appended.text, await git.shortHash(target.to));
+      doc.sections[idx] = { version: target.version, text };
+      const shownText = [renderHeading(target.version, target.date, style), ...appended.added].join("\n");
+      written.push({ target, text: shownText, action: "updated" });
       continue;
     }
 
@@ -194,7 +226,8 @@ export async function runChangelog(opts: ChangelogOptions): Promise<void> {
       p.log.info(pc.dim(`Nothing user-facing in ${label}.`));
       continue;
     }
-    const text = renderSection(target.version, target.date, items, style);
+    let text = renderSection(target.version, target.date, items, style);
+    if (target.pending) text = setMarker(text, await git.shortHash(target.to));
     const action = upsertSection(doc, target.version, text, {
       replace: true,
       absorbUnreleased: target.pending,
@@ -215,6 +248,8 @@ export async function runChangelog(opts: ChangelogOptions): Promise<void> {
   p.note(preview(changes), `${written.length} section(s) ${opts.dryRun ? "(dry run)" : ""}`.trim());
   const replaced = written.filter((w) => w.action === "replaced").map((w) => w.target.version);
   if (replaced.length > 0) p.log.warn(`Replacing existing section(s): ${replaced.join(", ")}`);
+  const updated = written.filter((w) => w.action === "updated").map((w) => w.target.version);
+  if (updated.length > 0) p.log.info(`Adding new entries to: ${updated.join(", ")} (existing entries are kept)`);
 
   if (opts.dryRun) {
     p.outro(pc.dim("Dry run: nothing written."));

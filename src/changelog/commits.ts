@@ -72,8 +72,10 @@ export function parseCommit(c: LogCommit, opts: { allTypes?: boolean } = {}): Pa
   const description = m ? cleanTitle({ type, scope, title: m[4]!.trim() }) : subject;
   const breaking = Boolean(m?.[3]) || /^BREAKING[ -]CHANGE:/m.test(c.body);
 
-  if (scope && /^(changelog|release)$/i.test(scope)) return null;
-  if (CHANGELOG_ONLY.test(description) && (!type || INTERNAL_TYPES.has(type))) return null;
+  // Commits that only maintain the changelog/release are noise, but `feat(changelog): ...` is a real feature.
+  const internal = !type || INTERNAL_TYPES.has(type);
+  if (scope && /^(changelog|release)$/i.test(scope) && internal && !breaking) return null;
+  if (CHANGELOG_ONLY.test(description) && internal) return null;
   if (!breaking && !opts.allTypes && type && INTERNAL_TYPES.has(type)) return null;
 
   return { hash: c.hash, type, scope, description, breaking, body: c.body, group: groupFor(type, scope, description) };

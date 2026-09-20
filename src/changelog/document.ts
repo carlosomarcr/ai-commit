@@ -108,12 +108,20 @@ const FLAT_PREFIX: Partial<Record<Group, string>> = {
 
 const bullet = (item: Item, prefix: string) => `- ${item.breaking ? "**Breaking:** " : ""}${prefix}${item.text}`;
 
-export function renderSection(version: string, date: string | undefined, items: Item[], style: Style): string {
+/** One changelog line in either layout (flat lists prefix the group, e.g. "Fix: "). */
+export const bulletLine = (item: Item, grouped: boolean) => bullet(item, grouped ? "" : (FLAT_PREFIX[item.group] ?? ""));
+
+export function renderHeading(version: string, date: string | undefined, style: Style): string {
   let head = `## ${style.bracket ? `[${version}]` : version}`;
   if (date && version !== UNRELEASED) {
     if (style.date === "paren") head += ` (${date})`;
     else if (style.date === "dash") head += ` - ${date}`;
   }
+  return head;
+}
+
+export function renderSection(version: string, date: string | undefined, items: Item[], style: Style): string {
+  const head = renderHeading(version, date, style);
 
   const byGroup = new Map<Group, Item[]>();
   for (const item of items) byGroup.set(item.group, [...(byGroup.get(item.group) ?? []), item]);

@@ -406,3 +406,13 @@ export async function commitsBetween(from: string | null, to: string): Promise<L
 export async function refExists(ref: string): Promise<boolean> {
   return (await git(["rev-parse", "--verify", "-q", `${ref}^{commit}`], { reject: false, readOnly: true })).exitCode === 0;
 }
+
+/** Abbreviated hash of a ref. */
+export async function shortHash(ref: string): Promise<string> {
+  return (await git(["rev-parse", "--short", ref], { readOnly: true })).stdout.trim();
+}
+
+/** True when `ancestor` is reachable from `ref` (so `ancestor..ref` is a meaningful range). */
+export async function isAncestor(ancestor: string, ref: string): Promise<boolean> {
+  return (await git(["merge-base", "--is-ancestor", ancestor, ref], { reject: false, readOnly: true })).exitCode === 0;
+}
