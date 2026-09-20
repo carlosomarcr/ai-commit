@@ -11,6 +11,12 @@ import { readPackageInfo } from "./update/version.js";
 
 const cli = cac("gitowl");
 
+function explicitFlag(flag: string): boolean {
+  const args = process.argv.slice(2);
+  const end = args.indexOf("--");
+  return (end === -1 ? args : args.slice(0, end)).includes(flag);
+}
+
 cli
   .command("", "Generate a commit with AI, confirm it, then optionally push")
   .option("-a, --all", "Stage all changes before committing")
@@ -33,8 +39,10 @@ cli
       single: options.single,
       allowSecrets: options.allowSecrets,
       hunks: options.hunks,
-      push: options.push === true,
-      noPush: options.push === false,
+      // cac defaults `push` to true whenever `--no-push` is declared, so
+      // options.push can't tell "flag passed" from "flag absent". Read argv.
+      push: explicitFlag("--push"),
+      noPush: explicitFlag("--no-push"),
       provider: options.provider,
       model: options.model,
       lang: options.lang,

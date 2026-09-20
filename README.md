@@ -25,7 +25,9 @@ AI-written git commits that **group your changes into logical commits**, follow 
    ○ Edit a commit…   ○ Move files…   ○ Split…   ○ Merge…   ○ Cancel
 ```
 
-## Install
+> **Two names, same tool.** Every install gives you both `gitowl` and the shorter `owl`. They are identical: `owl`, `owl init`, `owl changelog --dry-run` and `gitowl …` do exactly the same. This README uses `gitowl`; use whichever you prefer.
+
+## 📦 Install
 
 ```bash
 # any platform, needs Node 20.19+
@@ -38,27 +40,28 @@ irm https://raw.githubusercontent.com/carlosomarcr/gitowl/main/install.ps1 | iex
 
 Standalone binaries (no Node needed) for Windows, macOS and Linux are attached to every [release](https://github.com/carlosomarcr/gitowl/releases). They keep the API key in the config file (owner-only permissions) because the OS keyring is a native module that cannot be embedded; the npm install uses the keyring.
 
-## Quick start
+## 🚀 Quick start
 
 ```bash
 gitowl init      # 4-step wizard: provider, connection, model, preferences
 cd my-repo
 gitowl           # plan → review → commit → optional push
+owl              # same thing, shorter
 ```
 
 `gitowl doctor` checks git, your provider, key, model and project rules and tells you how to fix anything that is off (`--deep` also runs a real test generation).
 
-## How it works
+## ⚙️ How it works
 
 1. **Scope.** If you staged files, only those are used. Otherwise everything is (`--all` forces it).
 2. **Plan.** The model splits the changes into commits: code with its tests, manifests with lockfiles, docs / CI / dependency bumps apart, ordered so each commit builds on the previous. Every file is placed exactly once; anything the model forgets is placed by folder and you are told.
 3. **Review.** Edit a title (or the full message in your editor), regenerate a message, move files between commits, split, merge, skip a commit, or ask for a new plan with guidance ("keep docs separate").
 4. **Commit.** Each commit contains exactly its files. Your working tree is never touched; hooks run normally and if one fails you can retry, skip that commit, or stop.
-5. **Push.** You are asked once at the end. It shows the target branch, sets the upstream if needed, warns on `main`/`master`, and never force-pushes or pushes a branch that is behind its remote.
+5. **Push.** Controlled by the `push` setting: `ask` (default) asks once at the end, `always` pushes without asking, `never` skips it (`gitowl config set push ask|always|never`). `--push` / `--no-push` override it for a single run. It shows the target branch, sets the upstream if needed, warns on `main`/`master`, and never force-pushes or pushes a branch that is behind its remote.
 
 Cancelling or hitting Ctrl+C before commits start restores your staging exactly as it was.
 
-### Split a single file into several commits
+### ✂️ Split a single file into several commits
 
 ```bash
 gitowl --hunks
@@ -66,7 +69,7 @@ gitowl --hunks
 
 Unrelated changes inside one file (a feature and an unrelated typo fix) can go into different commits. Files are only split when applying all hunks reproduces the staged content byte for byte; otherwise they stay whole.
 
-## Your project's rules
+## 📏 Your project's rules
 
 gitowl reads the commit rules that already exist in your repo, nearest file wins (great for monorepos):
 
@@ -83,7 +86,7 @@ Highest priority is an optional `.gitowl.json`:
 
 Messages are validated against `types`, `scopes` and `maxHeaderLength`; violations are fed back to the model and, if they persist, shown as a warning.
 
-## Changelog
+## 📝 Changelog
 
 `gitowl changelog` (or `owl changelog`) writes release notes from your git history, in a few seconds and without reading any diffs, only commit messages.
 
@@ -104,7 +107,29 @@ gitowl changelog --no-ai -y           no model, no prompts (CI friendly)
 
 Other flags: `-o, --output <file>`, `--limit <n>` (missing tagged releases to write, default 10), `--all-types`, `--provider`, `--model`, `--lang`. Link references at the bottom of the file (`[1.0.0]: https://…`) are kept but not updated.
 
-## Providers
+## 🔧 Settings
+
+Run `gitowl config` for a menu, or script it:
+
+```bash
+gitowl config                    # interactive menu
+gitowl config get [key]          # print all settings, or one (the API key is never printed)
+gitowl config set push always    # change a setting
+gitowl config path               # where the config file lives
+gitowl config reset              # delete settings and the stored API key
+```
+
+| Key | Values | Default | What it does |
+|---|---|---|---|
+| `model` | model name | set by `init` | Model used for commits and changelogs |
+| `baseUrl` | URL | provider default | Custom or remote endpoint |
+| `language` | `en`, `es`, `Portuguese`… | `en` | Language of commit messages |
+| `push` | `ask` / `always` / `never` | `ask` | What happens after committing |
+| `updateCheck` | `true` / `false` | `true` | Daily "new version" notice |
+
+The API key is only set through the interactive `gitowl config` (so it never lands in your shell history).
+
+## 🤖 Providers
 
 | Provider | Setup | Key |
 |---|---|---|
@@ -120,7 +145,7 @@ API keys are stored in your **system keyring** (Windows Credential Manager, macO
 
 If the model fails (not in your plan, rate limit, invalid JSON) you can switch model or provider right there and continue.
 
-## Security & privacy
+## 🔒 Security & privacy
 
 - Diffs are scanned for API keys, tokens, private keys and hard-coded passwords. Secrets are **redacted before anything is sent to a model**, and files like `.env`, `*.pem`, `id_rsa` are never sent at all.
 - Flagged files can be left out of the commit (default with `--yes`); `--allow-secrets` overrides.
@@ -128,7 +153,7 @@ If the model fails (not in your plan, rate limit, invalid JSON) you can switch m
 - Hosted providers do receive your (redacted) diffs. For private code, use a local Ollama.
 - The scanner is heuristic and not a replacement for a dedicated tool such as gitleaks.
 
-## Commands and flags
+## 💻 Commands and flags
 
 ```
 gitowl [options]            plan, review, commit, push
@@ -145,20 +170,21 @@ gitowl update [--check]     update to the latest version
     --dry-run          show the plan, change nothing
 -y, --yes              no prompts (flagged secrets are left out)
     --allow-secrets    commit files flagged as possible secrets
-    --push / --no-push
+    --push             push without asking (overrides `push: ask`)
+    --no-push          never push (overrides `push: always`)
     --provider <id> --model <name> --lang <code>
 -i, --instructions "…" extra guidance for the model
 ```
 
-`owl` is a shorter alias for `gitowl`: both do exactly the same. If another program named `owl` is on your PATH first (for example the `owl-cli` npm package), keep using `gitowl`; `gitowl doctor` tells you when that happens. A `git owl` shortcut can also be added by the wizard.
+Everywhere above, `owl` can replace `gitowl` (`owl config`, `owl doctor`, `owl update`…). If another program named `owl` is on your PATH first (for example the `owl-cli` npm package), keep using `gitowl`; `gitowl doctor` tells you when that happens. A `git owl` shortcut can also be added by the wizard.
 
 Standalone binaries are named `gitowl`; rename the file to `owl` if you prefer the short name.
 
-## Updates
+## 🔄 Updates
 
 `gitowl update` detects how it was installed (npm, pnpm, yarn, bun, binary) and runs the right command. A once-a-day, non-blocking check prints a notice when a new version exists; disable it with `gitowl config set updateCheck off` or `GITOWL_NO_UPDATE_CHECK=1`.
 
-## Troubleshooting
+## 🩺 Troubleshooting
 
 | Symptom | Fix |
 |---|---|
@@ -168,7 +194,7 @@ Standalone binaries are named `gitowl`; rename the file to `owl` if you prefer t
 | A merge/rebase is in progress | finish or abort it, then rerun |
 | Anything else | `gitowl doctor --deep` |
 
-## Development
+## 🛠️ Development
 
 ```bash
 pnpm install
@@ -177,6 +203,6 @@ pnpm test         # unit and real-git integration tests
 pnpm typecheck && pnpm build
 ```
 
-## License
+## 📄 License
 
 MIT
